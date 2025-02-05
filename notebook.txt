@@ -1,0 +1,35 @@
+Engineering Notebook for Simple Chat
+
+Goal: Develop a messaging system using a client-server architecture with two different wire protocols (custom & JSON).
+
+2/5/24 - Setup [IN_PROGRESS]
+
+Goals:
+
+1. Begin brainstorming and planning the structure of the applcation
+
+Summary of Key Requirements of Service:
+
+1. User authentication (account creation, login)
+2. Listing accounts
+3. Sending and receiving messages
+4. Message storage and retrieval
+5. Account and message deletion
+6. GUI client interface
+
+Ideas:
+
+Language: Python (fastest to build)
+Repo Structure:
+    - /server: Server-side code
+    - /client: Client-side code
+    - /docs: Documentation
+    - /tests: Unit and integration tests
+    - /config: Configuration files
+    - README.md: Project overview and setup instructions
+Custom Protocol: [TODO]
+User Login Flow:
+    - unique username
+    - hashed password
+UI Flow:
+- Login screen -> Contact list -> Chat window
