@@ -13,12 +13,15 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
+from configs.config import *
+
 class RegisterPage(QWidget):
     # Define a custom signal that will be emitted when registration is successful
     registerSuccessful = pyqtSignal()
     
-    def __init__(self, parent=None):
+    def __init__(self, Client, parent=None):
         super(RegisterPage, self).__init__(parent)
+        self.Client = Client
         self.initUI()
 
     def initUI(self):
@@ -88,11 +91,17 @@ class RegisterPage(QWidget):
         self.btnRegister.clicked.connect(self.attemptRegister)
 
     def attemptRegister(self):
+        debug("Attempting to register...")
         username = self.usernameEdit.text().strip()
         password = self.passwordEdit.text().strip()
-        # For demonstration, assume registration is successful if both fields are nonempty.
         if username and password:
-            # In a real app, insert the account into the SQLite database here.
-            self.registerSuccessful.emit()  # Signal that registration was successful.
+            request = f"1.0 CREATE {username} {password}\n"
+            
+            response = self.Client.send_request(request)
+            debug(f"REGISTER PAGE Response: {response}")
+            if response == "1.0 SUCCESS Registration complete\n":
+                self.registerSuccessful.emit()
+            else:
+                QMessageBox.critical(self, "Registration Error", "Please try again. [will insert error later]")
         else:
             QMessageBox.critical(self, "Registration Error", "Please enter both username and password.")

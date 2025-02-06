@@ -17,8 +17,9 @@ class LoginPage(QWidget):
     # Define a custom signal that will be emitted when login is successful
     loginSuccessful = pyqtSignal()
     
-    def __init__(self, parent=None):
+    def __init__(self, Client, parent=None):
         super(LoginPage, self).__init__(parent)
+        self.Client = Client
         self.initUI()
 
     def initUI(self):
@@ -102,4 +103,18 @@ class LoginPage(QWidget):
             self.loginSuccessful.emit()  # Signal that login was successful.
         else:
             # Show error pop-up instead of printing to console.
+            QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
+    
+    def attemptLogin(self):
+        username = self.usernameEdit.text().strip()
+        password = self.passwordEdit.text().strip()
+        if username and password:
+            request = f"1.0 LOGIN {username} {password}\n"
+            response = self.Client.send_request(request)
+            
+            if response == "1.0 SUCCESS Login successful\n":
+                self.loginSuccessful.emit()
+            else:
+                QMessageBox.critical(self, "Login Error", "Please try again. [will insert error later]")
+        else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")

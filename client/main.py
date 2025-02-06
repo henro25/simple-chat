@@ -6,19 +6,20 @@ Date: 2024-2-6
 """
 
 import sys
+import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QStackedWidget,
     QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
-from config import *
+from configs.config import *
 
-# Import the UI pages
-from pages.main_menu import MainMenu
-from pages.login_page import LoginPage
-from pages.register_page import RegisterPage
-from pages.messaging_page import MessagingPage
+from .pages.main_menu import MainMenu
+from .pages.login_page import LoginPage
+from .pages.register_page import RegisterPage
+from .pages.messaging_page import MessagingPage
+from .client import Client
 
 class ChatApp(QMainWindow):
     def __init__(self):
@@ -26,6 +27,8 @@ class ChatApp(QMainWindow):
         self.setWindowTitle("Simple Chat")
         self.setStyleSheet("background-color: #DBEBED;")
         self.resize(600, 400)
+        
+        self.Client = Client(SERVER_HOST, SERVER_PORT)
 
         # QStackedWidget to hold different pages
         self.stack = QStackedWidget()
@@ -33,9 +36,9 @@ class ChatApp(QMainWindow):
 
         # Create pages
         self.mainMenu = MainMenu()
-        self.loginPage = LoginPage()
-        self.registerPage = RegisterPage()
-        self.messagingPage = MessagingPage()
+        self.loginPage = LoginPage(self.Client)
+        self.registerPage = RegisterPage(self.Client)
+        self.messagingPage = MessagingPage(self.Client)
 
         # Add pages to stack
         self.stack.addWidget(self.mainMenu)        # index 0
@@ -52,13 +55,21 @@ class ChatApp(QMainWindow):
         # Connect the custom signals to switch to MessagingPage after success
         self.loginPage.loginSuccessful.connect(lambda: self.stack.setCurrentWidget(self.messagingPage))
         self.registerPage.registerSuccessful.connect(lambda: self.stack.setCurrentWidget(self.messagingPage))
-        
+    
+    def closeEvent(self, event):
+        # Make sure to close the network connection when the app closes
+        self.Client.close()
+        event.accept()
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     # Load the external stylesheet (if the file exists)
     try:
-        with open("pages/style.qss", "r") as f:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        qss_file = os.path.join(base_dir, "pages/style.qss")
+        debug(f"Loading QSS file: {qss_file}")
+        with open(qss_file, "r") as f:
             style = f.read()
             app.setStyleSheet(style)
     except Exception as e:

@@ -1,15 +1,16 @@
 """
 Module Name: config.py
-Description: Configuration settings for the server (e.g., port numbers, database file location, logging settings).
+Description: Contains configuration settings for the client (e.g., server IP/port, timeout settings, etc.).
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
 # Define host and port for the server.
-HOST = 'localhost'
-PORT = 65432  # Choose an available TCP port
+SERVER_HOST = 'localhost' # '127.0.0.1'
+SERVER_PORT = 65432  # Choose an available TCP port
 
 PROTOCOL = "custom"  # Options: "custom" or "json"
+CURRENT_VERSION = "1.0"
 SUPPORTED_VERSIONS = ["1.0"]
 
 DATABASE_NAME = "chat.db"
@@ -21,3 +22,10 @@ USER_DNE    = 2 # when client logs in, the requested username does not exist
 WRONG_PASS  = 3 # when client logs in, the password is incorrect
 DB_ERROR    = 4 # when server experiences a database error
 UNSUPPORTED_VERSION = 5 # when client sends a message with an unsupported version
+
+DEBUG = True
+
+def debug(message):
+    """Print debug messages if DEBUG is True."""
+    if DEBUG:
+        print(f"[DEBUG] {message}")

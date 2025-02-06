@@ -10,7 +10,7 @@ import socket
 import types
 from . import database  # Your database module for registration/login
 
-from .config import *
+from configs.config import *
 
 # Create a default selector
 sel = selectors.DefaultSelector()
@@ -98,9 +98,9 @@ if __name__ == "__main__":
     database.initialize_db()
 
     lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lsock.bind((HOST, PORT))
+    lsock.bind((SERVER_HOST, SERVER_PORT))
     lsock.listen()
-    print("Listening on", (HOST, PORT))
+    print("Listening on", (SERVER_HOST, SERVER_PORT))
     lsock.setblocking(False)
     sel.register(lsock, selectors.EVENT_READ, data=None)
 

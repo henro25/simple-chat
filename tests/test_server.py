@@ -16,7 +16,7 @@ os.chdir(server_dir)
 
 from server import database
 from server.server import process_message
-from server.config import *
+from configs.config import *
 
 # Fixture to set up a temporary test database.
 @pytest.fixture(autouse=True)

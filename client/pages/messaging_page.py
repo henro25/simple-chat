@@ -12,8 +12,9 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 
 class MessagingPage(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, Client, parent=None):
         super(MessagingPage, self).__init__(parent)
+        self.Client = Client
         self.initUI()
 
     def initUI(self):

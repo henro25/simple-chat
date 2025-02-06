@@ -10,7 +10,7 @@ os.chdir(server_dir)
 
 # Add the root directory to sys.path
 from server import database
-from server.config import *
+from configs.config import *
 
 # Use a pytest fixture to set up and tear down a temporary test database.
 @pytest.fixture(autouse=True)

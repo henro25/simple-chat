@@ -7,7 +7,7 @@ Date: 2024-2-6
 
 import sqlite3
 from datetime import datetime
-from .config import *
+from configs.config import *
 
 def get_db_connection():
     """Establish and return a connection to the SQLite database."""
