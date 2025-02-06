@@ -187,8 +187,15 @@ Notes: Attempted to use tkinter, but for some reason the Labels and Text Entry c
 
 --- SQLite Database ---
 
-Using SQLite for account registration, login, and authentication.
+Used SQLite for account registration and login
+    - Created logic for account registration and login
+    - Created tests for the account registration and login logic
 
 --- Client Server Socket Code ---
 
-Creating a multi‐client server to handle message routing and persistence.
+Created a multi‐client server to handle message routing and persistence.
+    - Server: Used similar code to Jim's spinning servicing connections code
+    - Client: Created a client class that is passed throughout the client UI pages
+    - Current uses a loopback address!
+
+Notes: Writing tests were tricky with using the relative importing versus absolute importing. There were many errors in modules not found. Currently, we will use relative importing since it becomes compatible with testing and now treats server and client as modules.
