@@ -7,13 +7,16 @@ Date: 2024-2-6
 
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QStackedWidget,
+    QApplication, QMainWindow, QWidget, QStackedWidget, QMessageBox,
     QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 
 class LoginPage(QWidget):
+    # Define a custom signal that will be emitted when login is successful
+    loginSuccessful = pyqtSignal()
+    
     def __init__(self, parent=None):
         super(LoginPage, self).__init__(parent)
         self.initUI()
@@ -86,4 +89,17 @@ class LoginPage(QWidget):
 
         main_layout.addStretch(1)
         self.setLayout(main_layout)
+        
+        # Connect the login button to attempt a login
+        self.btnLogin.clicked.connect(self.attemptLogin)
     
+    def attemptLogin(self):
+        username = self.usernameEdit.text().strip()
+        password = self.passwordEdit.text().strip()
+        # For demonstration, assume login is successful if both fields are nonempty.
+        if username and password:
+            # In a real app, call your authentication backend here.
+            self.loginSuccessful.emit()  # Signal that login was successful.
+        else:
+            # Show error pop-up instead of printing to console.
+            QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
