@@ -5,53 +5,85 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
-import tkinter as tk
-from tkinter import messagebox
-from config import *
+import sys
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QStackedWidget,
+    QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
+)
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 
-class LoginPage(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent, bg="white")
+class LoginPage(QWidget):
+    def __init__(self, parent=None):
+        super(LoginPage, self).__init__(parent)
+        self.initUI()
+
+    def initUI(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(50, 50, 50, 50)
+        main_layout.setSpacing(30)
+
+        # Title label
+        title_label = QLabel("Login")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_font = QFont("Helvetica", 24, QFont.Bold)
+        title_label.setFont(title_font)
+        title_label.setStyleSheet("color: #2c3e50;")
+        main_layout.addWidget(title_label)
+
+        # Form layout for login fields
+        form_layout = QFormLayout()
+        form_layout.setLabelAlignment(Qt.AlignRight)
+        form_layout.setFormAlignment(Qt.AlignCenter)
+        form_layout.setHorizontalSpacing(20)
+        form_layout.setVerticalSpacing(15)
+
+        username_label = QLabel("Username:")
+        username_label.setStyleSheet("color: #2C3E50;")  # Dark gray text for contrast
+
+        self.usernameEdit = QLineEdit()
+        self.usernameEdit.setPlaceholderText("Enter your username")
+        self.usernameEdit.setFixedHeight(40)
+        form_layout.addRow(username_label, self.usernameEdit)
         
-        debug("Showing Login Page")
-        
-        self.controller = controller
+        password_label = QLabel("Password:")
 
-        title_label = tk.Label(self, text="Login", font=controller.title_font, bg="white")
-        title_label.pack(pady=10)
+        self.passwordEdit = QLineEdit()
+        self.passwordEdit.setPlaceholderText("Enter your password")
+        self.passwordEdit.setEchoMode(QLineEdit.Password)
+        self.passwordEdit.setFixedHeight(40)
+        form_layout.addRow(password_label, self.passwordEdit)
 
-        # Form container for username and password
-        form_frame = tk.Frame(self, bg="white")
-        form_frame.pack(pady=10)
+        main_layout.addLayout(form_layout)
 
-        tk.Label(form_frame, text="Username:", font=controller.label_font,
-                 bg="white").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-        self.username_entry = tk.Entry(form_frame, font=controller.entry_font, bg="white", fg="black")
-        self.username_entry.grid(row=0, column=1, padx=5, pady=5)
+        # Login button
+        self.btnLogin = QPushButton("Login")
+        self.btnLogin.setFixedHeight(45)
+        self.btnLogin.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        main_layout.addWidget(self.btnLogin)
 
-        tk.Label(form_frame, text="Password:", font=controller.label_font,
-                 bg="white").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-        self.password_entry = tk.Entry(form_frame, show="*", font=controller.entry_font, bg="white", fg="black")
-        self.password_entry.grid(row=1, column=1, padx=5, pady=5)
+        # Back button
+        self.btnBack = QPushButton("Back")
+        self.btnBack.setFixedHeight(45)
+        self.btnBack.setStyleSheet("""
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+            }
+        """)
+        main_layout.addWidget(self.btnBack)
 
-        submit_btn = tk.Button(self, text="Login", font=controller.button_font, width=15, command=self.login)
-        submit_btn.pack(pady=10)
-
-        back_btn = tk.Button(self, text="Back", font=controller.button_font, width=10, command=lambda: controller.open_frame("MainMenu"))
-        back_btn.pack(pady=5)
-
-    def login(self):
-        username = self.username_entry.get()
-        password = self.password_entry.get()
-        # Here, insert logic to contact the server, verify credentials, etc.
-        # For now, we'll simulate success or failure:
-        if username and password:  # Dummy check; replace with real authentication
-            messagebox.showinfo("Login", f"Login successful for {username}!")
-            # Transition to the main chat UI here
-        else:
-            messagebox.showerror("Login Error", "Please enter both username and password.")
-
-    def reset_fields(self):
-        """Clear the text in the username and password fields."""
-        self.username_entry.delete(0, tk.END)
-        self.password_entry.delete(0, tk.END)
+        main_layout.addStretch(1)
+        self.setLayout(main_layout)
+    

@@ -5,65 +5,60 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
-import tkinter as tk
-from tkinter import font as tkfont
+import sys
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QStackedWidget,
+    QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
+)
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 from config import *
-
-import os
-os.environ['TK_SILENCE_DEPRECATION'] = '1'
 
 # Import the UI pages
 from pages.main_menu import MainMenu
 from pages.login_page import LoginPage
 from pages.register_page import RegisterPage
 
-class ChatApp(tk.Tk):
+class ChatApp(QMainWindow):
     def __init__(self):
-        super().__init__()
-        self.title("Simple Chat")
-        self.geometry("600x400")
-        self.resizable(False, False)
+        super(ChatApp, self).__init__()
+        self.setWindowTitle("Simple Chat")
+        self.setStyleSheet("background-color: #DBEBED;")
+        self.resize(600, 400)
 
-        # Fonts for styling
-        self.title_font = tkfont.Font(family='Helvetica', size=18, weight="bold")
-        self.button_font = tkfont.Font(family='Helvetica', size=12)
-        self.label_font = tkfont.Font(family='Helvetica', size=12)
-        self.entry_font = tkfont.Font(family='Helvetica', size=12)
+        # QStackedWidget to hold different pages
+        self.stack = QStackedWidget()
+        self.setCentralWidget(self.stack)
 
-        # Container holds all the frames
-        self.container = tk.Frame(self)
-        self.container.pack(expand=True, fill="both")
-        
-        self.current_frame = None
+        # Create pages
+        self.mainMenu = MainMenu()
+        self.loginPage = LoginPage()
+        self.registerPage = RegisterPage()
 
-        # Start with the Main Menu
-        self.open_frame("MainMenu")
-    
-    def open_frame(self, frame_name):
-        """Destroys the current frame and creates a new one based on frame_name."""
-        # Destroy current frame if it exists
-        if self.current_frame is not None:
-            self.current_frame.destroy()
-        
-        # Create the new frame
-        if frame_name == "MainMenu":
-            debug("Opening Main Menu")
-            self.current_frame = MainMenu(self.container, self)
-        elif frame_name == "LoginPage":
-            debug("Opening Login Page")
-            self.current_frame = LoginPage(self.container, self)
-        elif frame_name == "RegisterPage":
-            debug("Opening Register Page")
-            self.current_frame = RegisterPage(self.container, self)
-        else:
-            raise ValueError("Unknown frame requested")
-    
-        # Pack the new frame to fill the container
-        self.current_frame.pack(expand=True, fill="both")
+        # Add pages to stack
+        self.stack.addWidget(self.mainMenu)      # index 0
+        self.stack.addWidget(self.loginPage)       # index 1
+        self.stack.addWidget(self.registerPage)    # index 2
 
-if __name__ == "__main__":
+        # Connect buttons to change pages
+        self.mainMenu.btnLogin.clicked.connect(lambda: self.stack.setCurrentWidget(self.loginPage))
+        self.mainMenu.btnRegister.clicked.connect(lambda: self.stack.setCurrentWidget(self.registerPage))
+        self.loginPage.btnBack.clicked.connect(lambda: self.stack.setCurrentWidget(self.mainMenu))
+        self.registerPage.btnBack.clicked.connect(lambda: self.stack.setCurrentWidget(self.mainMenu))
+
+        # Here you would connect the login/register buttons to your backend logic
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+
+    # Load the external stylesheet (if the file exists)
     try:
-        app = ChatApp()
-        app.mainloop()
+        with open("pages/style.qss", "r") as f:
+            style = f.read()
+            app.setStyleSheet(style)
     except Exception as e:
-        print("Error loading app:", e)
+        print("Could not load style sheet:", e)
+
+    window = ChatApp()
+    window.show()
+    sys.exit(app.exec_())

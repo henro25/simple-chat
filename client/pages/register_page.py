@@ -5,52 +5,78 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
-import tkinter as tk
-from tkinter import messagebox
-from config import *
+import sys
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QStackedWidget,
+    QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
+)
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 
-class RegisterPage(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent, bg="white")
-        
-        debug("Showing Register Page")
-        
-        self.controller = controller
+class RegisterPage(QWidget):
+    def __init__(self, parent=None):
+        super(RegisterPage, self).__init__(parent)
+        self.initUI()
 
-        title_label = tk.Label(self, text="Create Account", font=controller.title_font, bg="white")
-        title_label.pack(pady=10)
+    def initUI(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(50, 50, 50, 50)
+        main_layout.setSpacing(30)
 
-        form_frame = tk.Frame(self, bg="white")
-        form_frame.pack(pady=10)
+        # Title label
+        title_label = QLabel("Create Account")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_font = QFont("Helvetica", 24, QFont.Bold)
+        title_label.setFont(title_font)
+        main_layout.addWidget(title_label)
 
-        tk.Label(form_frame, text="Username:", font=controller.label_font,
-                 bg="white").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-        self.username_entry = tk.Entry(form_frame, font=controller.entry_font)
-        self.username_entry.grid(row=0, column=1, padx=5, pady=5)
+        # Form layout for registration fields
+        form_layout = QFormLayout()
+        form_layout.setLabelAlignment(Qt.AlignRight)
+        form_layout.setFormAlignment(Qt.AlignCenter)
+        form_layout.setHorizontalSpacing(20)
+        form_layout.setVerticalSpacing(15)
 
-        tk.Label(form_frame, text="Password:", font=controller.label_font,
-                 bg="white").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-        self.password_entry = tk.Entry(form_frame, show="*", font=controller.entry_font)
-        self.password_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.usernameEdit = QLineEdit()
+        self.usernameEdit.setPlaceholderText("Choose a username")
+        self.usernameEdit.setFixedHeight(40)
+        form_layout.addRow("Username:", self.usernameEdit)
 
-        submit_btn = tk.Button(self, text="Create Account", font=controller.button_font, width=15, command=self.register)
-        submit_btn.pack(pady=10)
+        self.passwordEdit = QLineEdit()
+        self.passwordEdit.setPlaceholderText("Choose a password")
+        self.passwordEdit.setEchoMode(QLineEdit.Password)
+        self.passwordEdit.setFixedHeight(40)
+        form_layout.addRow("Password:", self.passwordEdit)
 
-        back_btn = tk.Button(self, text="Back", font=controller.button_font, width=10, command=lambda: controller.open_frame("MainMenu"))
-        back_btn.pack(pady=5)
+        main_layout.addLayout(form_layout)
 
-    def register(self):
-        username = self.username_entry.get()
-        password = self.password_entry.get()
-        # Here, insert logic to send registration details to the server.
-        # For now, simulate registration:
-        if username and password:
-            messagebox.showinfo("Registration", f"Account created for {username}!")
-            self.controller.open_frame("LoginPage")
-        else:
-            messagebox.showerror("Registration Error", "Please enter both username and password.")
+        # Register button
+        self.btnRegister = QPushButton("Register")
+        self.btnRegister.setFixedHeight(45)
+        self.btnRegister.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        main_layout.addWidget(self.btnRegister)
 
-    def reset_fields(self):
-        """Clear the text in the username and password fields."""
-        self.username_entry.delete(0, tk.END)
-        self.password_entry.delete(0, tk.END)
+        # Back button
+        self.btnBack = QPushButton("Back")
+        self.btnBack.setFixedHeight(45)
+        self.btnBack.setStyleSheet("""
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+            }
+        """)
+        main_layout.addWidget(self.btnBack)
+
+        main_layout.addStretch(1)
+        self.setLayout(main_layout)

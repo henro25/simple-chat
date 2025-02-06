@@ -5,30 +5,65 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
-import tkinter as tk
-from config import *
+import sys
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QStackedWidget,
+    QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
+)
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 
-class MainMenu(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent, bg="lightblue")
-        
-        debug("Showing Main Menu")
-        
-        self.controller = controller
+class MainMenu(QWidget):
+    def __init__(self, parent=None):
+        super(MainMenu, self).__init__(parent)
+        self.initUI()
 
-        title_label = tk.Label(self, text="Welcome to Chat Service", font=controller.title_font, bg="lightblue", fg="white")
-        title_label.pack(pady=30)
-        
-        # Create a frame to hold the buttons, so they can be centered
-        button_frame = tk.Frame(self, bg="lightblue")
-        button_frame.pack(pady=20)
+    def initUI(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(50, 50, 50, 50)
+        layout.setSpacing(30)
+
+        # Title label
+        title_label = QLabel("Welcome to Chat Service")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_font = QFont("Helvetica", 24, QFont.Bold)
+        title_label.setFont(title_font)
+        # Use a QSS style for a modern look:
+        title_label.setStyleSheet("background-color: transparent; color: #2c3e50;")
+        layout.addWidget(title_label)
 
         # Create Account button
-        create_btn = tk.Button(button_frame, text="Create Account", font=controller.button_font,
-                               width=20, command=lambda: controller.open_frame("RegisterPage"))
-        create_btn.pack(pady=10)
+        self.btnRegister = QPushButton("Create Account")
+        self.btnRegister.setFixedHeight(45)
+        self.btnRegister.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        layout.addWidget(self.btnRegister)
 
         # Login button
-        login_btn = tk.Button(button_frame, text="Login", font=controller.button_font,
-                              width=20, command=lambda: controller.open_frame("LoginPage"))
-        login_btn.pack(pady=10)
+        self.btnLogin = QPushButton("Login")
+        self.btnLogin.setFixedHeight(45)
+        self.btnLogin.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        layout.addWidget(self.btnLogin)
+
+        layout.addStretch(1)
+        self.setLayout(layout)
+    

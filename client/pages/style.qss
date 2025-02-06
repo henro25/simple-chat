@@ -1,0 +1,55 @@
+/* style.qss */
+
+/* Set a global background for all widgets */
+QWidget {
+    background-color: #F2F2F7;
+}
+
+/* Style for labels */
+QLabel {
+    color: #2C3E50;
+}
+
+/* Style for QLineEdit (input fields) */
+QLineEdit {
+    background-color: #FFFFFF;
+    color: #333333;
+    border: 1px solid #CCCCCC;
+    border-radius: 3px;
+    padding: 0 5px;
+    font-size: 14px;
+}
+
+/* Style for QPushButton */
+QPushButton {
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+/* Specific styles for different buttons (you can target by objectName or add extra classes) */
+#registerButton {
+    background-color: #3498db;
+    color: white;
+}
+
+#registerButton:hover {
+    background-color: #2980b9;
+}
+
+#loginButton {
+    background-color: #2ecc71;
+    color: white;
+}
+
+#loginButton:hover {
+    background-color: #27ae60;
+}
+
+#backButton {
+    background-color: #95a5a6;
+    color: white;
+}
+
+#backButton:hover {
+    background-color: #7f8c8d;
+}
