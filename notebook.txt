@@ -2,7 +2,7 @@ Engineering Notebook for Simple Chat
 
 Goal: Develop a messaging system using a client-server architecture with two different wire protocols (custom & JSON).
 
-2/5/24 - Begin brainstorming and planning the structure, logic, and specification [IN_PROGRESS]
+2/5/24 - Begin brainstorming and planning the structure, logic, and specification [COMPLETED]
 
 --- SUMMARY OF KEY REQUIREMENTS ---
 
@@ -169,3 +169,24 @@ Client:
 - Delete Accont:
     - Format:  1.0 DEL_ACC [username]
     - Example: 1.0 DEL_ACC bridgetma04
+
+2/6/24 - Start implementing the UI, client server socket code, and SQLite Database [IN_PROGRESS]
+
+--- UI Implementation ---
+
+Created:
+    1. Main Menu (Landing Page), where user has option to create and account or login
+    2. Login Page, which has username and password text entries and submit and back buttons
+    3. Registration Page, which has username and password text entries and submit and back buttons
+    4. [TODO] Build a messaging page (and associated UI logic) for users after they successfully log in.
+        a. Currently, the messaging page will be blank
+
+Notes: Attempted to use tkinter, but for some reason the Labels and Text Entry components were failing to appear (although the Buttons were appearing just fine). After 2 hours of debugging, eventually switched to using PyQt.
+
+--- SQLite Database ---
+
+Using SQLite for account registration, login, and authentication.
+
+--- Client Server Socket Code ---
+
+Creating a multi‐client server to handle message routing and persistence.

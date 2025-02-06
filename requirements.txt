@@ -1,2 +1,2 @@
-# Tcl/Tk version: 8.5.9
-# Python version: 3.9.20
+PyQt6
+pytest

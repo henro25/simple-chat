@@ -6,3 +6,11 @@ Date: 2024-2-6
 """
 
 PROTOCOL = "custom"  # Options: "custom" or "json"
+DATABASE_NAME = "chat.db"
+
+# Error Codes
+SUCCESS     = 0
+USER_TAKEN  = 1 # when client creates a new username, username is already taken
+USER_DNE    = 2 # when client logs in, the requested username does not exist
+WRONG_PASS  = 3 # when client logs in, the password is incorrect
+DB_ERROR    = 4 # when server experiences a database error
