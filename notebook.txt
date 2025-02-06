@@ -127,6 +127,8 @@ USER_TAKEN  = 1 (when client creates a new username, username is already taken)
 USER_DNE    = 2 (when client logs in, the requested username does not exist)
 WRONG_PASS  = 3 (when client logs in, the password is incorrect)
 DB_ERROR    = 4 (when server experiences a database error)
+UNSUPPORTED_VERSION = 5
+UNSPECIFIED_COMMAND = 6
 
 Server:
 
