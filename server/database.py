@@ -5,13 +5,17 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
+import os
 import sqlite3
 from datetime import datetime
 from configs.config import *
 
+# Ensure that database is opened inside the /server directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def get_db_connection():
     """Establish and return a connection to the SQLite database."""
-    conn = sqlite3.connect(DATABASE_NAME)
+    conn = sqlite3.connect(os.path.join(BASE_DIR, DATABASE_NAME))
     conn.row_factory = sqlite3.Row  # Enable dictionary-like access to rows
     return conn
 
