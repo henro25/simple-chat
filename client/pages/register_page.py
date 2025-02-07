@@ -13,11 +13,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
+from client.protocols.custom_protocol import *
 from configs.config import *
 
 class RegisterPage(QWidget):
     # Define a custom signal that will be emitted when registration is successful
-    registerSuccessful = pyqtSignal()
+    registerSuccessful = pyqtSignal(list)
     
     def __init__(self, Client, parent=None):
         super(RegisterPage, self).__init__(parent)
@@ -95,13 +96,16 @@ class RegisterPage(QWidget):
         username = self.usernameEdit.text().strip()
         password = self.passwordEdit.text().strip()
         if username and password:
-            request = f"1.0 CREATE {username} {password}\n"
-            
+            request = create_registration_request(username, password)
             response = self.Client.send_request(request)
-            debug(f"REGISTER PAGE Response: {response}")
-            if response == "1.0 SUCCESS Registration complete\n":
-                self.registerSuccessful.emit()
+            
+            _, command, args = parse_message(response)
+            
+            if command == "ERROR":
+                errno = int(args[0])
+                QMessageBox.critical(self, "Registration Error", f"Error: {ERROR_MSGS[errno]}")
             else:
-                QMessageBox.critical(self, "Registration Error", "Please try again. [will insert error later]")
+                convo_list = deserialize_chat_conversations(args)
+                self.registerSuccessful.emit(convo_list)
         else:
             QMessageBox.critical(self, "Registration Error", "Please enter both username and password.")

@@ -18,7 +18,7 @@ class ListConvosPage(QWidget):
     # The signal sends the username (str) of the selected conversation.
     conversationSelected = pyqtSignal(str)
     
-    def __init__(self, chat_conversations, parent=None):
+    def __init__(self, parent=None):
         """
         Initializes the ListConvosPage.
         
@@ -26,8 +26,8 @@ class ListConvosPage(QWidget):
         :param parent: Parent widget.
         """
         super(ListConvosPage, self).__init__(parent)
-        self.chat_conversations = chat_conversations  # Original list of all conversations
-        self.filtered_conversations = self.chat_conversations[:]  # Copy used for filtering
+        self.chat_conversations = []  # List of tuples (user, num_unreads)
+        self.filtered_conversations = []  # Copy used for filtering
         self.initUI()
     
     def initUI(self):
@@ -73,6 +73,13 @@ class ListConvosPage(QWidget):
         
         # Initially populate the conversation buttons
         self.populateConversations()
+    
+    def updateConversations(self, new_conversations):
+        """Update the conversation list and refresh the UI."""
+        self.chat_conversations = new_conversations
+        self.filtered_conversations = new_conversations[:]  # Update filtered list as well
+        self.updateUnreadCount()    # Update the unread messages label
+        self.populateConversations()  # Recreate the buttons
     
     def updateUnreadCount(self):
         """Updates the label showing the total number of unread messages."""

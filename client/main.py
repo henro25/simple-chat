@@ -31,16 +31,6 @@ class ChatApp(QMainWindow):
         
         # Initialize the client
         self.Client = Client(SERVER_HOST, SERVER_PORT)
-        
-        # List to hold other users and unread messages; elements are tuples (user, num_unreads)
-        self.chat_conversations = [
-            ("Alice", 2),
-            ("Bob", 0),
-            ("Charlie", 5),
-            ("Dave", 1),
-            ("Eve", 0),
-            ("Faythe", 3)
-        ]
 
         # QStackedWidget to hold different pages
         self.stack = QStackedWidget()
@@ -50,7 +40,7 @@ class ChatApp(QMainWindow):
         self.mainMenu = MainMenu()
         self.loginPage = LoginPage(self.Client)
         self.registerPage = RegisterPage(self.Client)
-        self.listConvosPage = ListConvosPage(self.chat_conversations)
+        self.listConvosPage = ListConvosPage()
         self.messagingPage = MessagingPage(self.Client)
 
         # Add pages to stack
@@ -67,8 +57,18 @@ class ChatApp(QMainWindow):
         self.registerPage.btnBack.clicked.connect(lambda: self.stack.setCurrentWidget(self.mainMenu))
         
         # Connect the custom signals to switch to either Conversation List or Chat Page when signaled
-        self.loginPage.loginSuccessful.connect(lambda: self.stack.setCurrentWidget(self.listConvosPage))
-        self.registerPage.registerSuccessful.connect(lambda: self.stack.setCurrentWidget(self.listConvosPage))
+        self.loginPage.loginSuccessful.connect(
+            lambda convo_list: (
+                self.listConvosPage.updateConversations(convo_list),
+                self.stack.setCurrentWidget(self.listConvosPage)
+            )
+        )
+        self.registerPage.registerSuccessful.connect(
+            lambda convo_list: (
+                self.listConvosPage.updateConversations(convo_list),
+                self.stack.setCurrentWidget(self.listConvosPage)
+            )
+        )
         self.listConvosPage.conversationSelected.connect(lambda user: self.stack.setCurrentWidget(self.messagingPage))
     
     def closeEvent(self, event):

@@ -13,9 +13,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
+from client.protocols.custom_protocol import *
+from configs.config import *
+
 class LoginPage(QWidget):
     # Define a custom signal that will be emitted when login is successful
-    loginSuccessful = pyqtSignal()
+    loginSuccessful = pyqtSignal(list)
     
     def __init__(self, Client, parent=None):
         super(LoginPage, self).__init__(parent)
@@ -97,24 +100,17 @@ class LoginPage(QWidget):
     def attemptLogin(self):
         username = self.usernameEdit.text().strip()
         password = self.passwordEdit.text().strip()
-        # For demonstration, assume login is successful if both fields are nonempty.
         if username and password:
-            # In a real app, call your authentication backend here.
-            self.loginSuccessful.emit()  # Signal that login was successful.
-        else:
-            # Show error pop-up instead of printing to console.
-            QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
-    
-    def attemptLogin(self):
-        username = self.usernameEdit.text().strip()
-        password = self.passwordEdit.text().strip()
-        if username and password:
-            request = f"1.0 LOGIN {username} {password}\n"
+            request = create_login_request(username, password)
             response = self.Client.send_request(request)
             
-            if response == "1.0 SUCCESS Login successful\n":
-                self.loginSuccessful.emit()
+            _, command, args = parse_message(response)
+            
+            if command == "ERROR":
+                errno = int(args[0])
+                QMessageBox.critical(self, "Login Error", f"Error: {ERROR_MSGS[errno]}")
             else:
-                QMessageBox.critical(self, "Login Error", "Please try again. [will insert error later]")
+                convo_list = deserialize_chat_conversations(args)
+                self.loginSuccessful.emit(convo_list)
         else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")

@@ -248,7 +248,7 @@ Develop a messaging system using a client-server architecture with two different
 - **Login:**
   - **Format:** `1.0 LOGIN [username] [hashed_password]`
   - **Example:** `1.0 LOGIN henro 2620`
-  
+
 - **Request Chat History:**
   - **Format:** `1.0 READ [username] [other user]`
   - **Example:** `1.0 READ henro bridgetma04`
@@ -353,9 +353,9 @@ Develop a messaging system using a client-server architecture with two different
 
 #### TODOs:
 
-1. Substitute error codes with their actual information [Henry]
+1. [DONE] Substitute error codes with their actual information [Henry]
    1. Handle this in `/protocols` somehow (there should simply be a function that handles message translation)
-2. Implement Conversation List Page UI [Henry]
+2. [DONE] Implement Conversation List Page UI [Henry]
    1. Data Structure: Chat Conversations (LIST)
    2. Sort by timestamp
    3. Show num unread msgs next to each user
@@ -410,9 +410,10 @@ Develop a messaging system using a client-server architecture with two different
   6. [DONE] Display total unreads
   **Server-side**:
   1. [DONE] Create table `num_unread_msgs`, logic for handling get convo list (with num unreads) and updating num unreads, and tests
-    - Columns: recipient, sender, number of unread messages
-  2. Add protocol functionality to handle get convo list request
-
+    - Columns: recipient, sender, timestamp, number of unread messages
+  2. [DONE] Add protocol functionality to handle get convo list request
+     1. Added message parsing and logic to load chat conversations with unreads
+     2. Server is integrated with client
 
 ---
 
