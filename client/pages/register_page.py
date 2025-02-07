@@ -44,22 +44,31 @@ class RegisterPage(QWidget):
         form_layout.setHorizontalSpacing(20)
         form_layout.setVerticalSpacing(15)
 
+        # Username row
+        username_label = QLabel("Username:")
+        # Set a top margin of 3 pixels to push the label text down a bit
+        username_label.setContentsMargins(0, 3, 0, 0)
         self.usernameEdit = QLineEdit()
         self.usernameEdit.setPlaceholderText("Choose a username")
         self.usernameEdit.setFixedHeight(40)
-        form_layout.addRow("Username:", self.usernameEdit)
+        form_layout.addRow(username_label, self.usernameEdit)
 
+        # Password row
+        password_label = QLabel("Password:")
+        # Set a top margin of 3 pixels to push the label text down a bit
+        password_label.setContentsMargins(0, 3, 0, 0)
         self.passwordEdit = QLineEdit()
         self.passwordEdit.setPlaceholderText("Choose a password")
         self.passwordEdit.setEchoMode(QLineEdit.Password)
         self.passwordEdit.setFixedHeight(40)
-        form_layout.addRow("Password:", self.passwordEdit)
+        form_layout.addRow(password_label, self.passwordEdit)
 
         main_layout.addLayout(form_layout)
 
-        # Register button
+        # Register button with fixed width and centered
         self.btnRegister = QPushButton("Register")
         self.btnRegister.setFixedHeight(45)
+        self.btnRegister.setFixedWidth(200)
         self.btnRegister.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
@@ -69,11 +78,12 @@ class RegisterPage(QWidget):
                 background-color: #2980b9;
             }
         """)
-        main_layout.addWidget(self.btnRegister)
+        main_layout.addWidget(self.btnRegister, alignment=Qt.AlignHCenter)
 
-        # Back button
+        # Back button with fixed width and centered
         self.btnBack = QPushButton("Back")
         self.btnBack.setFixedHeight(45)
+        self.btnBack.setFixedWidth(200)
         self.btnBack.setStyleSheet("""
             QPushButton {
                 background-color: #95a5a6;
@@ -83,7 +93,7 @@ class RegisterPage(QWidget):
                 background-color: #7f8c8d;
             }
         """)
-        main_layout.addWidget(self.btnBack)
+        main_layout.addWidget(self.btnBack, alignment=Qt.AlignHCenter)
 
         main_layout.addStretch(1)
         self.setLayout(main_layout)

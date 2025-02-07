@@ -365,17 +365,17 @@ Develop a messaging system using a client-server architecture with two different
    6. [DONE] Display total unreads
 3. Implement Chat Page UI [Bridget]
    1. Data Structure: Chat Histories (DICT)
-   2. Scroll feature
+   2. [DONE] Scroll feature
    3. Back button
       1. Send msg to server to reset its num msgs sent chat counter
       2. Redirect back to conversation list page
    4. request more chat history
-      1. Button
+      1. [DONE] Button
       2. Update num unread
    5. Delete messages
       1. Show msg ID of YOUR messages
-      2. Text Entry to types msgs to delete
-      3. Button to send msg IDs to the server
+      2. [DONE] Text Entry to types msgs to delete
+      3. [DONE] Button to send msg IDs for deletion to the server
    6. Set max msg length
    7. Pulling user down when a live message is sent
       1. Send back msg if in current chat page with user who sent the live message

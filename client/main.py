@@ -27,7 +27,7 @@ class ChatApp(QMainWindow):
         super(ChatApp, self).__init__()
         self.setWindowTitle("Simple Chat")
         self.setStyleSheet("background-color: #DBEBED;")
-        self.resize(600, 400)
+        self.resize(250, 400)
         
         # Initialize the client
         self.Client = Client(SERVER_HOST, SERVER_PORT)
@@ -59,12 +59,14 @@ class ChatApp(QMainWindow):
         # Connect the custom signals to switch to either Conversation List or Chat Page when signaled
         self.loginPage.loginSuccessful.connect(
             lambda convo_list: (
+                self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
         self.registerPage.registerSuccessful.connect(
             lambda convo_list: (
+                self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )

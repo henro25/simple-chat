@@ -45,16 +45,21 @@ class LoginPage(QWidget):
         form_layout.setHorizontalSpacing(20)
         form_layout.setVerticalSpacing(15)
 
+        # Username row
         username_label = QLabel("Username:")
-        username_label.setStyleSheet("color: #2C3E50;")  # Dark gray text for contrast
-
+        username_label.setStyleSheet("color: #2C3E50;")
+        # Manually push the label text down
+        username_label.setContentsMargins(0, 3, 0, 0)
         self.usernameEdit = QLineEdit()
         self.usernameEdit.setPlaceholderText("Enter your username")
         self.usernameEdit.setFixedHeight(40)
         form_layout.addRow(username_label, self.usernameEdit)
         
+        # Password row
         password_label = QLabel("Password:")
-
+        password_label.setStyleSheet("color: #2C3E50;")
+        # Manually push the label text down
+        password_label.setContentsMargins(0, 3, 0, 0)
         self.passwordEdit = QLineEdit()
         self.passwordEdit.setPlaceholderText("Enter your password")
         self.passwordEdit.setEchoMode(QLineEdit.Password)
@@ -63,9 +68,10 @@ class LoginPage(QWidget):
 
         main_layout.addLayout(form_layout)
 
-        # Login button
+        # Login button with reduced width and centered
         self.btnLogin = QPushButton("Login")
         self.btnLogin.setFixedHeight(45)
+        self.btnLogin.setFixedWidth(200)  # Adjust width as needed
         self.btnLogin.setStyleSheet("""
             QPushButton {
                 background-color: #2ecc71;
@@ -75,11 +81,12 @@ class LoginPage(QWidget):
                 background-color: #27ae60;
             }
         """)
-        main_layout.addWidget(self.btnLogin)
+        main_layout.addWidget(self.btnLogin, alignment=Qt.AlignHCenter)
 
-        # Back button
+        # Back button with reduced width and centered
         self.btnBack = QPushButton("Back")
         self.btnBack.setFixedHeight(45)
+        self.btnBack.setFixedWidth(200)  # Adjust width as needed
         self.btnBack.setStyleSheet("""
             QPushButton {
                 background-color: #95a5a6;
@@ -89,7 +96,7 @@ class LoginPage(QWidget):
                 background-color: #7f8c8d;
             }
         """)
-        main_layout.addWidget(self.btnBack)
+        main_layout.addWidget(self.btnBack, alignment=Qt.AlignHCenter)
 
         main_layout.addStretch(1)
         self.setLayout(main_layout)
