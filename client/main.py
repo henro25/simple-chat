@@ -70,6 +70,7 @@ class ChatApp(QMainWindow):
             )
         )
         self.listConvosPage.conversationSelected.connect(lambda user: self.stack.setCurrentWidget(self.messagingPage))
+        self.messagingPage.backClicked.connect(lambda: self.stack.setCurrentWidget(self.listConvosPage))
     
     def closeEvent(self, event):
         # Make sure to close the network connection when the app closes
