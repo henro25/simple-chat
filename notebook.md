@@ -354,15 +354,15 @@ Develop a messaging system using a client-server architecture with two different
 #### TODOs:
 
 1. [DONE] Substitute error codes with their actual information [Henry]
-   1. Handle this in `/protocols` somehow (there should simply be a function that handles message translation)
+   1. [DONE] Handle this in `/configs`
 2. [DONE] Implement Conversation List Page UI [Henry]
-   1. Data Structure: Chat Conversations (LIST)
-   2. Sort by timestamp
-   3. Show num unread msgs next to each user
-      1. Make each a button
-   4. Scroll feature [can be click to see next set of users too if too tricky]
-   5. Search Bar
-   6. Display total unreads
+   1. [DONE] Data Structure: Chat Conversations (LIST)
+   2. [DONE] Sort by most recent conversation, then alphabetical if no chat history
+   3. [DONE] Show num unread msgs next to each user
+      1. [DONE] Make each a button
+   4. [DONE] Scroll feature
+   5. [DONE] Search Bar
+   6. [DONE] Display total unreads
 3. Implement Chat Page UI [Bridget]
    1. Data Structure: Chat Histories (DICT)
    2. Scroll feature
@@ -379,8 +379,8 @@ Develop a messaging system using a client-server architecture with two different
    6. Set max msg length
    7. Pulling user down when a live message is sent
       1. Send back msg if in current chat page with user who sent the live message
-4. Create num_unread_mgs db in server [Henry/Bridget]
-   1. Handle num_unread_msgs logic (related to protocol)
+4. [DONE] Create num_unread_mgs db in server [Henry/Bridget]
+   1. [DONE] Handle num_unread_msgs logic (related to protocol)
 5. Handle protocol parsing in `/protocols` [Henry/Bridget]
 6. Delete Account (UI + Protocol) [Bridget]
 7. Implement Old Accounts DB in server [Bridget]
@@ -412,8 +412,8 @@ Develop a messaging system using a client-server architecture with two different
   1. [DONE] Create table `num_unread_msgs`, logic for handling get convo list (with num unreads) and updating num unreads, and tests
     - Columns: recipient, sender, timestamp, number of unread messages
   2. [DONE] Add protocol functionality to handle get convo list request
-     1. Added message parsing and logic to load chat conversations with unreads
-     2. Server is integrated with client
+     1. [DONE] Added message parsing and logic to load chat conversations with unreads
+     2. [DONE] Server is integrated with client
 
 ---
 
