@@ -3,9 +3,9 @@ A simple, client-server chat application that allows users to send and receive t
 
 # Setting Up
 1. Create a virutal environment in the simple-chat root directory:
-   1. python3.10 -m venv venv
-   2. source venv/bin/activate
-2. Run `pip install -r requirements` to download required libraries
+   1. `python3.10 -m venv venv`
+   2. `source venv/bin/activate`
+2. Run `pip install -r requirements.txt` to download required libraries
 
 # Running the client and server
 

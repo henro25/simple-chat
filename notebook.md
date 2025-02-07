@@ -16,6 +16,8 @@ Develop a messaging system using a client-server architecture with two different
 
 ---
 
+# 2/5/24
+
 ## Summary of Key Requirements
 
 1. **User Authentication:**  
@@ -47,11 +49,12 @@ Develop a messaging system using a client-server architecture with two different
 - **/server** — Server-side code
 - **/client** — Client-side code
 - **/docs** — Documentation
+- **/configs** - Configurations (Connection Info)
 - **/tests** — Unit and integration tests
 - **README.md** — Project overview and setup instructions
 
 
-### Custom Protocol
+### Custom Protocol [DEPRECATED]
 
 - **Communication:** Use strings with a naive key/value pair implementation.
 - **Client → Server Examples:**
@@ -196,8 +199,7 @@ Develop a messaging system using a client-server architecture with two different
 
 ### General Message Format
 
-- [protocol version] [action] [data]
-
+- [protocol_version] [action] [data]
 
 ### Error Codes
 
@@ -264,6 +266,8 @@ Develop a messaging system using a client-server architecture with two different
 
 ---
 
+# 2/6/24
+
 ## Implementation Progress
 
 ### UI Implementation
@@ -278,7 +282,7 @@ Develop a messaging system using a client-server architecture with two different
     *Note: The messaging page will initially be blank.*
 
 > **Notes:**  
-> - Initially attempted using Tkinter; however, labels and text entries were not displaying properly (while buttons worked fine).  
+> - Initially attempted using Tkinter; however, labels and text entries were not displaying properly (while buttons worked fine). 
 > - After extensive debugging (~2 hours), the decision was made to switch to PyQt.
 
 ### SQLite Database
@@ -303,6 +307,25 @@ Develop a messaging system using a client-server architecture with two different
 > **Notes:**  
 > - Testing was challenging due to issues with relative vs. absolute imports.  
 > - Currently using relative imports for better compatibility during testing, treating both server and client as modules.
+
+---
+
+Questions:
+
+1. How do we want to pagination our results -- what do we want the UI chat to look like
+   1. This will influence how we want to create custom wire
+   2. How many messsages do we want to send from server to client at once?
+      1. Should we multithread or simple keep polling to send real-time updates?
+   3. We should diagram the information flow and edge cases of live streaming messages to another user!
+2. Come to a concensous on how to manage read/unread information flow
+3. Delete Accounts should need another database to make sure the same account name is not used twice? Should we even specify this?
+
+TODOs:
+
+1. Hashing the passwords
+2. Client (Integration) Tests
+3. Substitute error codes with their actual information
+   1. Handle this in `/protocols` somehow (there should simply be a function that handles message translation)
 
 ---
 
