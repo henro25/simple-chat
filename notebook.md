@@ -353,9 +353,9 @@ Develop a messaging system using a client-server architecture with two different
 
 #### TODOs:
 
-1. Substitute error codes with their actual information
+1. Substitute error codes with their actual information [Henry]
    1. Handle this in `/protocols` somehow (there should simply be a function that handles message translation)
-2. Implement Conversation List Page UI
+2. Implement Conversation List Page UI [Henry]
    1. Data Structure: Chat Conversations (LIST)
    2. Sort by timestamp
    3. Show num unread msgs next to each user
@@ -363,7 +363,7 @@ Develop a messaging system using a client-server architecture with two different
    4. Scroll feature [can be click to see next set of users too if too tricky]
    5. Search Bar
    6. Display total unreads
-3. Implement Chat Page UI
+3. Implement Chat Page UI [Bridget]
    1. Data Structure: Chat Histories (DICT)
    2. Scroll feature
    3. Back button
@@ -379,11 +379,11 @@ Develop a messaging system using a client-server architecture with two different
    6. Set max msg length
    7. Pulling user down when a live message is sent
       1. Send back msg if in current chat page with user who sent the live message
-4. Create num_unread_mgs db in server
+4. Create num_unread_mgs db in server [Henry/Bridget]
    1. Handle num_unread_msgs logic (related to protocol)
-5. Handle protocol parsing in `/protocols`
-6.  Delete Account (UI + Protocol)
-7.  Implement Old Accounts DB in server
+5. Handle protocol parsing in `/protocols` [Henry/Bridget]
+6. Delete Account (UI + Protocol) [Bridget]
+7. Implement Old Accounts DB in server [Bridget]
     1.  Add logic to server for invalid registration or logins
 
 #### Later TODOs:
