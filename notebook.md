@@ -217,22 +217,27 @@ Develop a messaging system using a client-server architecture with two different
   - **Example:** `1.0 ERROR 1`
   
 - **User List & Unread Count:**
-  - **Format:** `1.0 USERS [list of users]`
+  - **Format:** `1.0 USERS [list of (users, number of unread messages)]`
   - **Example:** `1.0 USERS bridgetma04 6 jwaldo 1 ewang 2`
   
 - **Chat History:**
   - **Format:**  
-    `1.0 MSGS [user1] [num msgs] [msg ID, num words, msg1] [msg ID, num words, msg2] ...`
+    `1.0 MSGS [1 if user who last sent message is same as the user receiving this history else 0] [num msgs] [msg ID (if 1), num words, msg1] [msg ID (if 1), num words, msg2] ...`
   - **Example:**  
-    `1.0 MSGS henro 2 111 2 hello bridget 112 3 it's henry ! 113 1 Hi!`
+    - User this message is being sent to is user1: `1.0 MSGS 1 3 111 2 hello bridget 112 3 it's henry ! 113 1 Hi!`
+    - User this message is being sent to is NOT user1: `1.0 MSGS 0 2 2 hello bridget 3 it's henry ! 1 Hi! 1 2241 2 Hello Back`
+
+- **Client Sent Message Acknowledgement**
+  - **Format:** `1.0 ACK [msg ID]`
+  - **Example:** `1.0 ACK 2241`
   
-- **Real-Time Message:**
+- **Real-Time Send Message:**
   - **Format:** `1.0 PUSH_MSG [recipient] [msg]`
   - **Example:** `1.0 PUSH_MSG bridgetma04 hello bridget`
   
 - **Real-Time Delete Message:**
-  - **Format:** `1.0 DEL_MSG [sender] [msg ID]`
-  - **Example:** `1.0 DEL_MSG bridgetma04 2241`
+  - **Format:** `1.0 DEL_MSG [sender] [msg IDs]`
+  - **Example:** `1.0 DEL_MSG bridgetma04 2241 2622`
 
 ### Client-to-Server Communication
 
@@ -248,17 +253,17 @@ Develop a messaging system using a client-server architecture with two different
   - **Format:** `1.0 READ [username] [other user]`
   - **Example:** `1.0 READ henro bridgetma04`
   
-- **Acknowledge Read Message:**
-  - **Format:** `1.0 READ_ACK [username] [message ID]`
-  - **Example:** `1.0 READ_ACK henro 2241`
-  
 - **Send Message:**
   - **Format:** `1.0 SEND [message ID] [sender] [recipient] [message]`
   - **Example:** `1.0 SEND 2241 henro bridgetma04 hello!`
   
+- **Acknowledge Read Message:**
+  - **Format:** `1.0 READ_ACK [num_msgs that was sent to this user that was read]`
+  - **Example:** `1.0 READ_ACK 2` if user is in current conversation with sender, and `1.0 READ_ACK 0` if user is NOT in current conversation with sender
+  
 - **Delete Message:**
-  - **Format:** `1.0 DEL_MSG [sender] [recipient] [message ID]`
-  - **Example:** `1.0 DEL_MSG henro bridgetma04 2241`
+  - **Format:** `1.0 DEL_MSG [sender] [recipient] [message IDs]`
+  - **Example:** `1.0 DEL_MSG henro bridgetma04 2241 2622`
   
 - **Delete Account:**
   - **Format:** `1.0 DEL_ACC [username]`
@@ -292,6 +297,13 @@ Develop a messaging system using a client-server architecture with two different
 - **Status:**  
   - Logic for account registration and login is implemented.
   - Tests for these functionalities have been created.
+- **Tables**
+  - accounts
+  - old_accounts
+  - chat_history
+    - Fields: msg id, timestamp, sender, recipient, msg content
+  - num_unread_msgs
+    - Fields: recipient, sender, number of unread messages
 
 ### Client-Server Socket Code
 
@@ -310,22 +322,78 @@ Develop a messaging system using a client-server architecture with two different
 
 ---
 
-Questions:
+#### Questions to Answer:
 
 1. How do we want to pagination our results -- what do we want the UI chat to look like
    1. This will influence how we want to create custom wire
    2. How many messsages do we want to send from server to client at once?
-      1. Should we multithread or simple keep polling to send real-time updates?
+      1. ANSWER: up to 20
+      2. Should we multithread or simple keep polling to send real-time updates?
    3. We should diagram the information flow and edge cases of live streaming messages to another user!
 2. Come to a concensous on how to manage read/unread information flow
+   1. Assume they read number of messages sent by the server (we can always increase num msgs sent by server)
 3. Delete Accounts should need another database to make sure the same account name is not used twice? Should we even specify this?
+4. How to delete messages:
+   1. Client: has a text box that the user can write message IDs into and press a button to delete
+   2. How do we create message IDs?
+      1. ANSWER: server keeps a counter that increases by 1 every time a message is sent between two people
+         1. Once a server receives a chat message, not only does it increment that counter, but it also sends the message ID back to the client
+            1. Client displays message ID next to every message they sent
+         2. Delete mesasge from database
+         3. If the recipient is online, send a real time delete to that recipient
+         4. To handle set of messages, simply use commas to separate message IDs to delete
+5. What data structures should the client have?
+   1. Chat Conversations (LIST)
+      1. Element: (timestamp, user, num_unreads)
+   2. Chat Histories (DICT)
+      1. Key: Other User
+      2. Value: [
+        (msg id, user sent, message content)
+      ]
 
-TODOs:
+#### TODOs:
 
-1. Hashing the passwords
-2. Client (Integration) Tests
-3. Substitute error codes with their actual information
+1. Substitute error codes with their actual information
    1. Handle this in `/protocols` somehow (there should simply be a function that handles message translation)
+2. Implement Conversation List Page UI
+   1. Data Structure: Chat Conversations (LIST)
+   2. Sort by timestamp
+   3. Show num unread msgs next to each user
+      1. Make each a button
+   4. Scroll feature [can be click to see next set of users too if too tricky]
+   5. Search Bar
+   6. Display total unreads
+3. Implement Chat Page UI
+   1. Data Structure: Chat Histories (DICT)
+   2. Scroll feature
+   3. Back button
+      1. Send msg to server to reset its num msgs sent chat counter
+      2. Redirect back to conversation list page
+   4. request more chat history
+      1. Button
+      2. Update num unread
+   5. Delete messages
+      1. Show msg ID of YOUR messages
+      2. Text Entry to types msgs to delete
+      3. Button to send msg IDs to the server
+   6. Set max msg length
+   7. Pulling user down when a live message is sent
+      1. Send back msg if in current chat page with user who sent the live message
+4. Create num_unread_mgs db in server
+   1. Handle num_unread_msgs logic (related to protocol)
+5. Handle protocol parsing in `/protocols`
+6.  Delete Account (UI + Protocol)
+7.  Implement Old Accounts DB in server
+    1.  Add logic to server for invalid registration or logins
+
+#### Later TODOs:
+1. JSON (version 2.0)
+2. dynamically increasing num msgs sent by server when requested chat history
+3. Hashing the passwords
+4. Tests
+5. Documentation
+6. Modify the config so that messages can be sent to a real host (not loopback aka `localhost`)
+7. Clean All Accounts funtion on the server
 
 ---
 
