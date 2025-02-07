@@ -344,7 +344,7 @@ Develop a messaging system using a client-server architecture with two different
          4. To handle set of messages, simply use commas to separate message IDs to delete
 5. What data structures should the client have?
    1. Chat Conversations (LIST)
-      1. Element: (timestamp, user, num_unreads)
+      1. Element: (user, num_unreads)
    2. Chat Histories (DICT)
       1. Key: Other User
       2. Value: [
@@ -394,6 +394,20 @@ Develop a messaging system using a client-server architecture with two different
 5. Documentation
 6. Modify the config so that messages can be sent to a real host (not loopback aka `localhost`)
 7. Clean All Accounts funtion on the server
+
+---
+
+# 2/7/24
+
+## Implementing Conversation List Page UI
+   1. [DONE] Data Structure: Chat Conversations (LIST)
+   2. [DONE] Sort by most recent conversation (actually no need since we will be receiving users in most recent order)
+   3. [DONE] Show num unread msgs next to each user
+      1. [DONE] Make each a button
+   4. [DONE] Scroll feature [can be click to see next set of users too if too tricky]
+   5. [DONE] Search Bar
+   6. [DONE] Display total unreads
+
 
 ---
 
