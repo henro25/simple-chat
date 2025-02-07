@@ -17,4 +17,4 @@ Starting the client:
 2. Run from the root directory `python -m client.main`
 
 # Testing
-To test in `/tests`, simply cd into `tests` and run: `pytest`
+To run the unit tests, simply run: `pytest`

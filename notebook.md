@@ -400,13 +400,18 @@ Develop a messaging system using a client-server architecture with two different
 # 2/7/24
 
 ## Implementing Conversation List Page UI
-   1. [DONE] Data Structure: Chat Conversations (LIST)
-   2. [DONE] Sort by most recent conversation (actually no need since we will be receiving users in most recent order)
-   3. [DONE] Show num unread msgs next to each user
-      1. [DONE] Make each a button
-   4. [DONE] Scroll feature [can be click to see next set of users too if too tricky]
-   5. [DONE] Search Bar
-   6. [DONE] Display total unreads
+  **Client-side**:
+  1. [DONE] Data Structure: Chat Conversations (LIST)
+  2. [DONE] Sort by most recent conversation (actually no need since we will be receiving users in most recent order)
+  3. [DONE] Show num unread msgs next to each user
+    1. [DONE] Make each a button
+  4. [DONE] Scroll feature [can be click to see next set of users too if too tricky]
+  5. [DONE] Search Bar
+  6. [DONE] Display total unreads
+  **Server-side**:
+  1. [DONE] Create table `num_unread_msgs`, logic for handling get convo list (with num unreads) and updating num unreads, and tests
+    - Columns: recipient, sender, number of unread messages
+  2. Add protocol functionality to handle get convo list request
 
 
 ---
