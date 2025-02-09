@@ -1,3 +1,10 @@
+"""
+Module Name: test_authentication.py
+Description: Tests to ensure that the authentication functions (registering accounts, verifying logins) work correctly.
+Author: Henry Huang and Bridget Ma
+Date: 2024-2-7
+"""
+
 import os
 import sys
 import pytest

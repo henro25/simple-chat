@@ -13,11 +13,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
+from client.protocols.custom_protocol import *
 from configs.config import *
 
 class RegisterPage(QWidget):
     # Define a custom signal that will be emitted when registration is successful
-    registerSuccessful = pyqtSignal()
+    registerSuccessful = pyqtSignal(list)
     
     def __init__(self, Client, parent=None):
         super(RegisterPage, self).__init__(parent)
@@ -43,22 +44,31 @@ class RegisterPage(QWidget):
         form_layout.setHorizontalSpacing(20)
         form_layout.setVerticalSpacing(15)
 
+        # Username row
+        username_label = QLabel("Username:")
+        # Set a top margin of 3 pixels to push the label text down a bit
+        username_label.setContentsMargins(0, 3, 0, 0)
         self.usernameEdit = QLineEdit()
         self.usernameEdit.setPlaceholderText("Choose a username")
         self.usernameEdit.setFixedHeight(40)
-        form_layout.addRow("Username:", self.usernameEdit)
+        form_layout.addRow(username_label, self.usernameEdit)
 
+        # Password row
+        password_label = QLabel("Password:")
+        # Set a top margin of 3 pixels to push the label text down a bit
+        password_label.setContentsMargins(0, 3, 0, 0)
         self.passwordEdit = QLineEdit()
         self.passwordEdit.setPlaceholderText("Choose a password")
         self.passwordEdit.setEchoMode(QLineEdit.Password)
         self.passwordEdit.setFixedHeight(40)
-        form_layout.addRow("Password:", self.passwordEdit)
+        form_layout.addRow(password_label, self.passwordEdit)
 
         main_layout.addLayout(form_layout)
 
-        # Register button
+        # Register button with fixed width and centered
         self.btnRegister = QPushButton("Register")
         self.btnRegister.setFixedHeight(45)
+        self.btnRegister.setFixedWidth(200)
         self.btnRegister.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
@@ -68,11 +78,12 @@ class RegisterPage(QWidget):
                 background-color: #2980b9;
             }
         """)
-        main_layout.addWidget(self.btnRegister)
+        main_layout.addWidget(self.btnRegister, alignment=Qt.AlignHCenter)
 
-        # Back button
+        # Back button with fixed width and centered
         self.btnBack = QPushButton("Back")
         self.btnBack.setFixedHeight(45)
+        self.btnBack.setFixedWidth(200)
         self.btnBack.setStyleSheet("""
             QPushButton {
                 background-color: #95a5a6;
@@ -82,7 +93,7 @@ class RegisterPage(QWidget):
                 background-color: #7f8c8d;
             }
         """)
-        main_layout.addWidget(self.btnBack)
+        main_layout.addWidget(self.btnBack, alignment=Qt.AlignHCenter)
 
         main_layout.addStretch(1)
         self.setLayout(main_layout)
@@ -95,13 +106,16 @@ class RegisterPage(QWidget):
         username = self.usernameEdit.text().strip()
         password = self.passwordEdit.text().strip()
         if username and password:
-            request = f"1.0 CREATE {username} {password}\n"
-            
+            request = create_registration_request(username, password)
             response = self.Client.send_request(request)
-            debug(f"REGISTER PAGE Response: {response}")
-            if response == "1.0 SUCCESS Registration complete\n":
-                self.registerSuccessful.emit()
+            
+            _, command, args = parse_message(response)
+            
+            if command == "ERROR":
+                errno = int(args[0])
+                QMessageBox.critical(self, "Registration Error", f"Error: {ERROR_MSGS[errno]}")
             else:
-                QMessageBox.critical(self, "Registration Error", "Please try again. [will insert error later]")
+                convo_list = deserialize_chat_conversations(args)
+                self.registerSuccessful.emit(convo_list)
         else:
             QMessageBox.critical(self, "Registration Error", "Please enter both username and password.")

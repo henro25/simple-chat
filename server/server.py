@@ -1,6 +1,6 @@
 """
 Module Name: server.py
-Description: The main entry point for running the server. It will set up the socket, listen for incoming connections, and route messages according to your protocol.
+Description: The main entry point for running the server. It will set up the socket, listen for incoming connections, and route messages according to the protocol.
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
@@ -10,6 +10,7 @@ import socket
 import types
 from . import database  # Your database module for registration/login
 
+from server.protocols.custom_protocol import process_message
 from configs.config import *
 
 # Create a default selector
@@ -22,38 +23,6 @@ def accept_wrapper(sock):
     data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
     sel.register(conn, events, data=data)
-
-def process_message(message):
-    """
-    Process a message string according to our custom protocol.
-    
-    Expected formats:
-      - "1.0 CREATE username password"
-      - "1.0 LOGIN username password"
-    
-    Returns a response string.
-    """
-    tokens = message.strip().split()
-
-    version, command, username, password = tokens[0], tokens[1], tokens[2], tokens[3]
-    
-    if version not in SUPPORTED_VERSIONS:
-        return f"1.0 ERROR {UNSUPPORTED_VERSION}"
-    
-    if command.upper() == "CREATE":
-        success, errno = database.register_account(username, password)
-        if success:
-            return "1.0 SUCCESS Registration complete"
-        else:
-            # For example, error code 1 indicates username already exists.
-            return f"1.0 ERROR {errno}"
-    elif command.upper() == "LOGIN":
-        success, errno = database.verify_login(username, password)
-        if success:
-            return "1.0 SUCCESS Login successful"
-        else:
-            # For example, error code 4 for login failure.
-            return f"1.0 ERROR {errno}"
 
 def service_connection(key, mask):
     sock = key.fileobj

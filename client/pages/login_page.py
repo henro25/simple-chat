@@ -13,9 +13,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
+from client.protocols.custom_protocol import *
+from configs.config import *
+
 class LoginPage(QWidget):
     # Define a custom signal that will be emitted when login is successful
-    loginSuccessful = pyqtSignal()
+    loginSuccessful = pyqtSignal(list)
     
     def __init__(self, Client, parent=None):
         super(LoginPage, self).__init__(parent)
@@ -42,16 +45,21 @@ class LoginPage(QWidget):
         form_layout.setHorizontalSpacing(20)
         form_layout.setVerticalSpacing(15)
 
+        # Username row
         username_label = QLabel("Username:")
-        username_label.setStyleSheet("color: #2C3E50;")  # Dark gray text for contrast
-
+        username_label.setStyleSheet("color: #2C3E50;")
+        # Manually push the label text down
+        username_label.setContentsMargins(0, 3, 0, 0)
         self.usernameEdit = QLineEdit()
         self.usernameEdit.setPlaceholderText("Enter your username")
         self.usernameEdit.setFixedHeight(40)
         form_layout.addRow(username_label, self.usernameEdit)
         
+        # Password row
         password_label = QLabel("Password:")
-
+        password_label.setStyleSheet("color: #2C3E50;")
+        # Manually push the label text down
+        password_label.setContentsMargins(0, 3, 0, 0)
         self.passwordEdit = QLineEdit()
         self.passwordEdit.setPlaceholderText("Enter your password")
         self.passwordEdit.setEchoMode(QLineEdit.Password)
@@ -60,9 +68,10 @@ class LoginPage(QWidget):
 
         main_layout.addLayout(form_layout)
 
-        # Login button
+        # Login button with reduced width and centered
         self.btnLogin = QPushButton("Login")
         self.btnLogin.setFixedHeight(45)
+        self.btnLogin.setFixedWidth(200)  # Adjust width as needed
         self.btnLogin.setStyleSheet("""
             QPushButton {
                 background-color: #2ecc71;
@@ -72,11 +81,12 @@ class LoginPage(QWidget):
                 background-color: #27ae60;
             }
         """)
-        main_layout.addWidget(self.btnLogin)
+        main_layout.addWidget(self.btnLogin, alignment=Qt.AlignHCenter)
 
-        # Back button
+        # Back button with reduced width and centered
         self.btnBack = QPushButton("Back")
         self.btnBack.setFixedHeight(45)
+        self.btnBack.setFixedWidth(200)  # Adjust width as needed
         self.btnBack.setStyleSheet("""
             QPushButton {
                 background-color: #95a5a6;
@@ -86,7 +96,7 @@ class LoginPage(QWidget):
                 background-color: #7f8c8d;
             }
         """)
-        main_layout.addWidget(self.btnBack)
+        main_layout.addWidget(self.btnBack, alignment=Qt.AlignHCenter)
 
         main_layout.addStretch(1)
         self.setLayout(main_layout)
@@ -97,24 +107,17 @@ class LoginPage(QWidget):
     def attemptLogin(self):
         username = self.usernameEdit.text().strip()
         password = self.passwordEdit.text().strip()
-        # For demonstration, assume login is successful if both fields are nonempty.
         if username and password:
-            # In a real app, call your authentication backend here.
-            self.loginSuccessful.emit()  # Signal that login was successful.
-        else:
-            # Show error pop-up instead of printing to console.
-            QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
-    
-    def attemptLogin(self):
-        username = self.usernameEdit.text().strip()
-        password = self.passwordEdit.text().strip()
-        if username and password:
-            request = f"1.0 LOGIN {username} {password}\n"
+            request = create_login_request(username, password)
             response = self.Client.send_request(request)
             
-            if response == "1.0 SUCCESS Login successful\n":
-                self.loginSuccessful.emit()
+            _, command, args = parse_message(response)
+            
+            if command == "ERROR":
+                errno = int(args[0])
+                QMessageBox.critical(self, "Login Error", f"Error: {ERROR_MSGS[errno]}")
             else:
-                QMessageBox.critical(self, "Login Error", "Please try again. [will insert error later]")
+                convo_list = deserialize_chat_conversations(args)
+                self.loginSuccessful.emit(convo_list)
         else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")

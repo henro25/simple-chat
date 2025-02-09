@@ -11,7 +11,10 @@ A simple, client-server chat application that allows users to send and receive t
 
 Starting the server: in terminal and from the root directory, run `python -m server.server`
 
-Starting the client: in another terminal window and from the root directory, run `python -m client.main`
+Starting the client: 
+
+1. In another terminal window and from the root directory, activate the environment again `source venv/bin/activate`
+2. Run from the root directory `python -m client.main`
 
 # Testing
-To test in `/tests`, simply cd into `tests` and run: `pytest`
+To run the unit tests, simply run: `pytest`

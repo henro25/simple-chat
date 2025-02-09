@@ -48,15 +48,13 @@ def test_create_account_success():
     """
     Test that creating a new account succeeds.
     """
-    assert process_message("1.0 CREATE testuser hashed123") == "1.0 SUCCESS Registration complete"
+    assert process_message("1.0 CREATE testuser hashed123") == "1.0 USERS"
 
 def test_create_account_duplicate():
     """
     Test that attempting to create an account with an existing username fails.
     """
-    response1 = process_message("1.0 CREATE testuser hashed123")
-    assert "SUCCESS" in response1  # First registration succeeds.
-    
+    process_message("1.0 CREATE testuser hashed123")
     response2 = process_message("1.0 CREATE testuser hashed456")
     assert response2 == f"1.0 ERROR {USER_TAKEN}"
 
@@ -67,7 +65,7 @@ def test_login_success():
     # First, register an account.
     process_message("1.0 CREATE testuser hashed123")
     response = process_message("1.0 LOGIN testuser hashed123")
-    assert response == "1.0 SUCCESS Login successful"
+    assert response == "1.0 USERS"
 
 def test_login_wrong_password():
     """

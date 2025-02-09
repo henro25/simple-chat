@@ -22,6 +22,16 @@ USER_DNE    = 2 # when client logs in, the requested username does not exist
 WRONG_PASS  = 3 # when client logs in, the password is incorrect
 DB_ERROR    = 4 # when server experiences a database error
 UNSUPPORTED_VERSION = 5 # when client sends a message with an unsupported version
+UNKNOWN_COMMAND = 6 # when client sends a message with an unknown command
+
+ERROR_MSGS = {
+    1: "Username already exists.",
+    2: "Username does not exist.",
+    3: "Incorrect password.",
+    4: "Database error.",
+    5: "Unsupported protocol version.",
+    6: "Unknown wire command reveived."
+}
 
 DEBUG = True
 

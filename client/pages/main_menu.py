@@ -21,20 +21,34 @@ class MainMenu(QWidget):
     def initUI(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(50, 50, 50, 50)
-        layout.setSpacing(30)
+        layout.setSpacing(20)
 
-        # Title label
-        title_label = QLabel("Welcome to Chat Service")
-        title_label.setAlignment(Qt.AlignCenter)
+        # Add some top spacing
+        layout.addSpacing(40)
+
+        # Define a common font for the title labels
         title_font = QFont("Helvetica", 24, QFont.Bold)
-        title_label.setFont(title_font)
-        # Use a QSS style for a modern look:
-        title_label.setStyleSheet("background-color: transparent; color: #2c3e50;")
-        layout.addWidget(title_label)
+
+        # First line of the title
+        title_line1 = QLabel("Welcome to")
+        title_line1.setAlignment(Qt.AlignCenter)
+        title_line1.setFont(title_font)
+        title_line1.setStyleSheet("background-color: transparent; color: #2c3e50;")
+        layout.addWidget(title_line1)
+
+        # Second line of the title
+        title_line2 = QLabel("Simple Chat!")
+        title_line2.setAlignment(Qt.AlignCenter)
+        title_line2.setFont(title_font)
+        title_line2.setStyleSheet("background-color: transparent; color: #2c3e50;")
+        layout.addWidget(title_line2)
+
+        layout.addSpacing(40)  # Extra padding below the title labels
 
         # Create Account button
         self.btnRegister = QPushButton("Create Account")
         self.btnRegister.setFixedHeight(45)
+        self.btnRegister.setFixedWidth(200)  # Set the desired button width
         self.btnRegister.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
@@ -46,11 +60,12 @@ class MainMenu(QWidget):
                 background-color: #2980b9;
             }
         """)
-        layout.addWidget(self.btnRegister)
+        layout.addWidget(self.btnRegister, alignment=Qt.AlignHCenter)
 
         # Login button
         self.btnLogin = QPushButton("Login")
         self.btnLogin.setFixedHeight(45)
+        self.btnLogin.setFixedWidth(200)  # Set the desired button width
         self.btnLogin.setStyleSheet("""
             QPushButton {
                 background-color: #2ecc71;
@@ -62,8 +77,7 @@ class MainMenu(QWidget):
                 background-color: #27ae60;
             }
         """)
-        layout.addWidget(self.btnLogin)
+        layout.addWidget(self.btnLogin, alignment=Qt.AlignHCenter)
 
         layout.addStretch(1)
         self.setLayout(layout)
-    
