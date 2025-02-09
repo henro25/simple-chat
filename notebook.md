@@ -426,6 +426,7 @@ Develop a messaging system using a client-server architecture with two different
   2. [DONE] Send messages and messages being stored in server database
   3. [DONE] Delete messages and messages being deleted from server database
   4. [DONE] Get chat history from server and populating chat box with history when click on conversation
+  5. [DONE] Modified existing code to have username stored in every page such that it is easy to compare username against other things
   **Server-side**:
   1. [DONE] Create table `messages`, logic for handling get chat histroy and updating chat history, and tests
     - Columns: id, sender, recipient, message, timestamp
