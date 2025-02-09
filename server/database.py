@@ -47,6 +47,16 @@ def initialize_db():
         )
     """)
     
+    # Create the messages table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender TEXT NOT NULL,
+            recipient TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -210,6 +220,101 @@ def update_num_unread(recipient, sender, num_unread):
     
     conn.commit()
     conn.close()
+
+# ----------------------------
+# Query and Update Messages
+# ----------------------------
+
+def store_message(sender, recipient, message):
+    """
+    Store a message in the database.
+
+    Parameters:
+        sender (str): The sender of the message.
+        recipient (str): The recipient of the message
+        message (str): The text content of the message.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        INSERT INTO messages (sender, recipient, message) 
+        VALUES (?, ?, ?)
+    """, (sender, recipient, message))
+
+    message_id = cur.lastrowid  # Retrieve the auto-incremented message ID
+    
+    conn.commit()
+    conn.close()
+
+    return message_id  # Return the message ID
+
+def get_recent_messages(user1, user2, limit=20):
+    """
+    Retrieve the most recent messages exchanged between two users.
+
+    Parameters:
+        user1 (str): First username.
+        user2 (str): Second username.
+        limit (int): Number of messages to fetch (default 20).
+
+    Returns:
+        list: A list of dictionaries containing messages.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT id, sender, recipient, message, timestamp 
+        FROM messages 
+        WHERE (sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)
+        ORDER BY id DESC 
+        LIMIT ?
+    """, (user1, user2, user2, user1, limit))
+    
+    messages = cur.fetchall()
+    conn.close()
+    
+    # Convert SQLite row objects to a list of dictionaries
+    return [
+        {"id": row["id"], "sender": row["sender"], "recipient": row["recipient"], "message": row["message"], "timestamp": row["timestamp"]}
+        for row in reversed(messages)  # Reverse to show oldest first
+    ]
+
+def delete_message(message_id):
+    """
+    Deletes a message from the database if the user is either the sender or recipient.
+
+    Parameters:
+        message_id (int): The ID of the message to be deleted.
+
+    Returns:
+        bool: True if deletion was successful, False otherwise.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Get message to verify existence
+    cur.execute(f"""
+        SELECT id, sender, recipient FROM messages WHERE id = ?""", (message_id,))
+
+    message = cur.fetchall()
+
+    if not message:
+        conn.close()
+        return False, ID_DNE  # ID DNE
+
+    # Delete the message
+    try:
+        cur.execute("""DELETE FROM messages WHERE id = ?""", (message_id,))
+    except Exception as e:
+        conn.close()
+        return False, DB_ERROR
+
+    conn.commit()
+    conn.close()
+    
+    return True, SUCCESS  # Deletion successful
     
 # ----------------------------
 # Additional Utility Functions
