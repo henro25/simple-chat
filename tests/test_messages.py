@@ -1,9 +1,9 @@
 """
 Module Name: test_messages.py
-Description: Unit tests for store_message(), delete_message(), and get_recent_messages() 
+Description: Extended unit tests for store_message(), delete_message(), and get_recent_messages() 
              to ensure messages table is updated correctly.
 Author: Henry Huang and Bridget Ma
-Date: 2024-2-7
+Date: 2024-2-9
 """
 
 import os
@@ -17,6 +17,7 @@ server_dir = os.path.join(project_root, 'server')
 os.chdir(server_dir)
 
 from server import database
+from configs.config import *
 
 # ----------------------------
 # Setup and Teardown
@@ -49,21 +50,22 @@ def setup_database():
 
 def test_store_message():
     """
-    Test that store_message() correctly inserts a new message.
+    Test that store_message() correctly inserts a new message and returns its ID.
     """
     sender = "alice"
     recipient = "bob"
     message = "Hello, Bob!"
     
-    database.store_message(sender, recipient, message)
+    msg_id = database.store_message(sender, recipient, message)
 
     conn = database.get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT sender, recipient, message FROM messages WHERE sender = ? AND recipient = ?", (sender, recipient))
+    cur.execute("SELECT id, sender, recipient, message FROM messages WHERE id = ?", (msg_id,))
     row = cur.fetchone()
     conn.close()
 
     assert row is not None, "Message should be stored in the database."
+    assert row["id"] == msg_id
     assert row["sender"] == sender
     assert row["recipient"] == recipient
     assert row["message"] == message
@@ -80,24 +82,50 @@ def test_get_recent_messages():
     recipient = "bob"
 
     # Insert multiple messages
-    database.store_message(sender, recipient, "Message 1")
-    database.store_message(sender, recipient, "Message 2")
-    database.store_message(recipient, sender, "Message 3")
-    database.store_message(sender, recipient, "Message 4")
+    msg1_id = database.store_message(sender, recipient, "Message 1")
+    msg2_id = database.store_message(sender, recipient, "Message 2")
+    msg3_id = database.store_message(recipient, sender, "Message 3")
+    msg4_id = database.store_message(sender, recipient, "Message 4")
 
     messages = database.get_recent_messages(sender, recipient, limit=3)
-    print(messages)
 
     assert len(messages) == 3, "Should retrieve the 3 most recent messages."
     assert messages[0]["message"] == "Message 2"
     assert messages[1]["message"] == "Message 3"
     assert messages[2]["message"] == "Message 4"
 
+def test_get_recent_messages_with_oldest_message_id():
+    """
+    Test fetching older messages using oldest_message_id.
+    """
+    sender = "alice"
+    recipient = "bob"
+
+    # Insert multiple messages
+    msg1_id = database.store_message(sender, recipient, "Message A")
+    msg2_id = database.store_message(sender, recipient, "Message B")
+    msg3_id = database.store_message(sender, recipient, "Message C")
+    msg4_id = database.store_message(sender, recipient, "Message D")
+
+    # Fetch messages before msg3_id
+    older_messages = database.get_recent_messages(sender, recipient, limit=2, oldest_msg_id=msg3_id)
+
+    assert len(older_messages) == 2, "Should fetch 2 older messages."
+    assert older_messages[0]["message"] == "Message A"
+    assert older_messages[1]["message"] == "Message B"
+
+def test_get_recent_messages_empty():
+    """
+    Test retrieving messages when no conversation exists.
+    """
+    messages = database.get_recent_messages("nonexistent_user", "other_user", limit=5)
+    assert messages == [], "Should return an empty list when no messages exist."
+
 # ----------------------------
 # Tests for delete_message
 # ----------------------------
 
-def test_delete_messages():
+def test_delete_message():
     """
     Test that delete_message() removes a message from the database.
     """
@@ -106,14 +134,7 @@ def test_delete_messages():
     message = "This message will be deleted."
     
     # Store a message
-    database.store_message(sender, recipient, message)
-
-    # Retrieve the message ID
-    conn = database.get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT id FROM messages WHERE sender = ? AND message = ?", (sender, message))
-    msg_id = cur.fetchone()["id"]
-    conn.close()
+    msg_id = database.store_message(sender, recipient, message)
 
     # Ensure the message exists before deletion
     conn = database.get_db_connection()
@@ -123,7 +144,8 @@ def test_delete_messages():
     conn.close()
 
     # Delete the message
-    assert database.delete_message(msg_id), "Message should be successfully deleted."
+    success, _ = database.delete_message(msg_id)
+    assert success, "Message should be successfully deleted."
 
     # Ensure the message is removed
     conn = database.get_db_connection()
@@ -131,3 +153,55 @@ def test_delete_messages():
     cur.execute("SELECT COUNT(*) FROM messages WHERE id = ?", (msg_id,))
     assert cur.fetchone()[0] == 0, "Message should be deleted from the database."
     conn.close()
+
+def test_delete_nonexistent_message():
+    """
+    Test deleting a message that doesn't exist.
+    """
+    success, error_code = database.delete_message(99999)  # Nonexistent ID
+    assert not success, "Should return False when deleting a nonexistent message."
+    assert error_code == ID_DNE, "Should return correct error code for nonexistent ID."
+
+def test_delete_multiple_messages():
+    """
+    Test deleting multiple messages one after another.
+    """
+    sender = "alice"
+    recipient = "bob"
+
+    msg1_id = database.store_message(sender, recipient, "Message 1")
+    msg2_id = database.store_message(sender, recipient, "Message 2")
+    msg3_id = database.store_message(sender, recipient, "Message 3")
+
+    assert database.delete_message(msg1_id)[0], "Message 1 should be deleted."
+    assert database.delete_message(msg2_id)[0], "Message 2 should be deleted."
+    assert database.delete_message(msg3_id)[0], "Message 3 should be deleted."
+
+    conn = database.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM messages WHERE sender = ?", (sender,))
+    assert cur.fetchone()[0] == 0, "All messages from sender should be deleted."
+    conn.close()
+
+# ----------------------------
+# Additional Tests
+# ----------------------------
+
+def test_clear_accounts_does_not_affect_messages():
+    """
+    Ensure that clearing accounts does not delete messages.
+    """
+    sender = "alice"
+    recipient = "bob"
+    message = "Persistent message."
+
+    msg_id = database.store_message(sender, recipient, message)
+
+    database.clear_accounts()  # Clear accounts but messages should remain
+
+    conn = database.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM messages WHERE id = ?", (msg_id,))
+    assert cur.fetchone()[0] == 1, "Messages should remain after clearing accounts."
+    conn.close()
+
