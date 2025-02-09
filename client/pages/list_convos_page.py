@@ -12,13 +12,14 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
+from client.protocols.custom_protocol import *
+from configs.config import *
 
 class ListConvosPage(QWidget):
     # Signal emitted when a conversation is selected.
-    # The signal sends the username (str) of the selected conversation.
-    conversationSelected = pyqtSignal(str)
+    conversationSelected = pyqtSignal(str, str, list)
     
-    def __init__(self, parent=None):
+    def __init__(self, Client, parent=None):
         """
         Initializes the ListConvosPage.
         
@@ -26,8 +27,10 @@ class ListConvosPage(QWidget):
         :param parent: Parent widget.
         """
         super(ListConvosPage, self).__init__(parent)
+        self.Client = Client
         self.chat_conversations = []  # List of tuples (user, num_unreads)
         self.filtered_conversations = []  # Copy used for filtering
+        self.username = None # Username of client
         self.initUI()
     
     def initUI(self):
@@ -148,13 +151,29 @@ class ListConvosPage(QWidget):
             ]
         self.populateConversations()
     
+    def set_username(self, username):
+        """
+        Stores the username of current client.
+        
+        :param username: The username of client.
+        """
+        self.username = username
+    
     def onConversationSelected(self, user):
         """
         Called when a conversation button is clicked.
         
         :param user: The username of the conversation selected.
         """
-        # Emit the signal to notify that a conversation was selected.
-        self.conversationSelected.emit(user)
+        request = create_chat_history_request(self.username, user)
+        response = self.Client.send_request(request)
+        _, command, args = parse_message(response)
+        if command == "ERROR":
+            errno = int(args[0])
+            # QMessageBox.critical(self, "Chat History Error", f"Error: {ERROR_MSGS[errno]}")
+        else:
+            chat_history = deserialize_chat_history(args, self.username, user)
+            # Emit the signal to notify that a conversation was selected.
+            self.conversationSelected.emit(self.username, user, chat_history)
         # Transition logic to the messaging_page can be handled in the main window.
 
