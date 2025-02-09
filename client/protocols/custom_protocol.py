@@ -52,3 +52,63 @@ def deserialize_chat_conversations(chat_conversations):
                 unread = 0
             convo_list.append((user, unread))
     return convo_list
+
+def create_chat_history_request(username, other_user):
+    """
+    Construct a chat history request message.
+    """
+    return f"1.0 READ {username} {other_user}\n"
+
+def deserialize_chat_history(chat_history, username, other_user):
+    """
+    Parse a server response of the form:
+      `1.0 MSGS [1 if user who sent the ealiest message is same as the user 
+      receiving this history else 0] [num msgs] [msg ID (if 1), num words, msg1] 
+      [msg ID (if 1), num words, msg2] ...`
+    into a list of tuples: [(username, msg ID, message), (username, msg ID, message), ...].
+    """
+    if len(chat_history)==0:
+        return []
+    message_list = []
+    is_client = int(chat_history[0])
+    ind = 1
+    while ind < len(chat_history):
+        try:
+            num_messages = int(chat_history[ind])
+            ind += 1
+        except ValueError:
+            num_messages = 0
+        while num_messages > 0 and ind < len(chat_history):
+            try:
+                id = int(chat_history[ind])
+                num_words = int(chat_history[ind+1])
+                ind += 2
+                user = username if is_client else other_user
+                msg = ' '.join(chat_history[ind:ind+num_words])
+                message_list.append((user, id, msg))
+                ind += num_words
+            except ValueError:
+                num_messages = 0
+            num_messages -= 1
+        is_client = abs(1-is_client)
+    return message_list
+
+def create_send_message_request(username, other_user, message):
+    """
+    Construct a chat history request message.
+    """
+    return f"1.0 SEND {username} {other_user} {message}\n"
+
+def deserialize_message_acknowledgement(ack):
+    """
+    Parse a server response of the form:
+      `1.0 ACK [msg ID]`
+    into a msg ID
+    """
+    return int(ack[0])
+
+def create_delete_message_request(msg_id):
+    """
+    Construct a delete message request message.
+    """
+    return f"1.0 DEL_MSG {msg_id}\n"
