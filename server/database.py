@@ -249,13 +249,14 @@ def store_message(sender, recipient, message):
 
     return message_id  # Return the message ID
 
-def get_recent_messages(user1, user2, limit=20):
+def get_recent_messages(user1, user2, oldest_msg_id=-1, limit=20):
     """
     Retrieve the most recent messages exchanged between two users.
 
     Parameters:
         user1 (str): First username.
         user2 (str): Second username.
+        oldest_msg_id (int): oldest message in client's local chat history between user1 and user2
         limit (int): Number of messages to fetch (default 20).
 
     Returns:
@@ -264,13 +265,24 @@ def get_recent_messages(user1, user2, limit=20):
     conn = get_db_connection()
     cur = conn.cursor()
     
-    cur.execute("""
-        SELECT id, sender, recipient, message, timestamp 
-        FROM messages 
-        WHERE (sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)
-        ORDER BY id DESC 
-        LIMIT ?
-    """, (user1, user2, user2, user1, limit))
+    if oldest_msg_id == -1:
+        cur.execute("""
+            SELECT id, sender, recipient, message, timestamp 
+            FROM messages 
+            WHERE (sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)
+            ORDER BY id DESC 
+            LIMIT ?
+        """, (user1, user2, user2, user1, limit))
+    else:
+        # Fetch older messages (before `oldest_message_id`)
+        cur.execute("""
+            SELECT id, sender, recipient, message, timestamp 
+            FROM messages 
+            WHERE ((sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?))
+            AND id < ? 
+            ORDER BY id DESC 
+            LIMIT ?
+        """, (user1, user2, user2, user1, oldest_msg_id, limit))
     
     messages = cur.fetchall()
     conn.close()
