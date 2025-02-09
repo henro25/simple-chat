@@ -18,7 +18,7 @@ from configs.config import *
 
 class LoginPage(QWidget):
     # Define a custom signal that will be emitted when login is successful
-    loginSuccessful = pyqtSignal(list)
+    loginSuccessful = pyqtSignal(str, list)
     
     def __init__(self, Client, parent=None):
         super(LoginPage, self).__init__(parent)
@@ -118,6 +118,6 @@ class LoginPage(QWidget):
                 QMessageBox.critical(self, "Login Error", f"Error: {ERROR_MSGS[errno]}")
             else:
                 convo_list = deserialize_chat_conversations(args)
-                self.loginSuccessful.emit(convo_list)
+                self.loginSuccessful.emit(username, convo_list)
         else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
