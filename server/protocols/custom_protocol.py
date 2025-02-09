@@ -65,9 +65,10 @@ def handle_get_conversations(recipient):
 
 def handle_get_chat_history(args):
     """
-    Handle a client's request for chat history.
+    Handle a client's request for chat history ealier than the oldest_msg_id. When oldest_msg_id == -1, return 
+    the most recent messages. 
 
-    Parameters: [client, user2]
+    Parameters: [client, user2, oldest_msg_id]
 
     Returns a response in the format:
         `1.0 MSGS [1 if user who sent the ealiest message is same as the user receiving this history else 0] 
@@ -75,7 +76,8 @@ def handle_get_chat_history(args):
     """
     client = args[0]
     user2 = args[1]
-    history = database.get_recent_messages(client, user2)
+    oldest_msg_id = int(args[2])
+    history = database.get_recent_messages(client, user2, oldest_msg_id=oldest_msg_id)
     if not history:
         return "1.0 MSGS "
     response = "1.0 MSGS " + ("1" if history[0]["sender"] == client else "0")
