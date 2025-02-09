@@ -232,7 +232,60 @@ class MessagingPage(QWidget):
 
     def loadChat(self):
         """Show a pop-up message indicating that Load Chat is not yet implemented."""
-        QMessageBox.information(self, "Load Chat", "Will be implemented in a theatre near you")
+        # get oldest msg_id
+        oldest_msg_id = self.chat_history[0] if self.chat_history else -1
+
+        # Create and send request to fetch older messages
+        request = create_chat_history_request(self.client_username, self.other_user, oldest_msg_id)
+        response = self.Client.send_request(request)
+        _, command, args = parse_message(response)
+
+        # Deserialize received chat history
+        earlier_messages = deserialize_chat_history(args, self.client_username, self.other_user)
+
+        if not earlier_messages:
+            QMessageBox.information(self, "Load Chat", "No more chat history available.")
+            return
+        
+        # Get the vertical scrollbar
+        scroll_bar = self.chat_area.verticalScrollBar()
+        
+        # Capture the current scroll position relative to the first visible message
+        prev_scroll_value = scroll_bar.value()
+        prev_max_scroll = scroll_bar.maximum()
+
+        # Save current height of the chat area
+        prev_chat_height = self.chat_area.viewport().height()
+
+        # Prepend earlier messages to chat layout
+        for sender, msg_id, message in reversed(earlier_messages):  # Reverse to maintain chronological order
+            if msg_id in self.chat_history:
+                continue  # Prevent duplicates
+
+            is_client = 1 if sender == self.client_username else 0
+            sender_display = "You" if is_client else sender
+            formatted_msg = f"<b>{sender_display}:</b> {message}"
+
+            widget = ChatMessageWidget(formatted_msg, message_id=msg_id, is_client=is_client)
+            if is_client:
+                widget.delete_button.clicked.connect(lambda: self.deleteMessage(widget))
+            
+            # Insert message at the top
+            self.chat_layout.insertWidget(0, widget)
+            
+            self.chat_history = [msg_id] + self.chat_history
+            self.message_info[msg_id] = (sender, message)
+
+        # Restore scroll position after inserting messages
+        QTimer.singleShot(50, lambda: self.restoreScrollPosition(scroll_bar, prev_scroll_value, prev_max_scroll))
+
+    def restoreScrollPosition(self, scroll_bar, prev_scroll_value, prev_max_scroll):
+        """
+        Adjust the scrollbar after loading older messages to prevent jumping.
+        """
+        new_max_scroll = scroll_bar.maximum()
+        scroll_offset = new_max_scroll - prev_max_scroll  # Calculate the shift
+        scroll_bar.setValue(prev_scroll_value + scroll_offset)  # Maintain the previous relative position
 
     def goBack(self):
         """Clear all message widgets and emit the backClicked signal."""
