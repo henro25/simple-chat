@@ -251,8 +251,8 @@ Develop a messaging system using a client-server architecture with two different
   - **Example:** `1.0 LOGIN henro 2620`
 
 - **Request Chat History:**
-  - **Format:** `1.0 READ [username] [other user]`
-  - **Example:** `1.0 READ henro bridgetma04`
+  - **Format:** `1.0 READ [username] [other user] [oldest_msg_id default set to -1 when requesting most recent chat history for when first loading messaging page]`
+  - **Example:** `1.0 READ henro bridgetma04 121`
   
 - **Send Message:**
   - **Format:** `1.0 SEND [sender] [recipient] [message]`
@@ -436,8 +436,26 @@ Develop a messaging system using a client-server architecture with two different
   3. [DONE] Add protocol functionality to handle get send message request
   4. [DONE] Add protocol functionality to handle get delete message request
   **Changed Wire Protocol**:
-  1. Modified wording of chat history protocol such that it is clearer
-  2. Modified client and server side delete message protocol to only include message id
-  3. Added error code 7 for message id DNE when trying to delete
+  1. [DONE] Modify wording of chat history protocol such that it is clearer
+  2. [DONE] Modify client and server side delete message protocol to only include message id
+  3. [DONE] Add error code 7 for message id DNE when trying to delete
+
+---
+
+# 2/9/24
+
+## Implementing Messaging Page UI
+  **Client-side**:
+  1. [DONE] Load chat to display most recent messages older than oldest message in user's local history id in user's local chat history.
+     1. [DONE] Modify create_chat_history_request protocol function to include oldest message
+     2. [DONE] Add logic and parsing to request for more chat history after user clicks load chat button
+     3. [DONE] Add functionality to maintain scroll position after added chat history
+  2. [] Real time message receiving when other user sends message while chatting with them
+  **Server-side**:
+  1. [DONE] Modify handle_get_chat_history protocol to complete load chat functionality on client side
+  2. [DONE] Modify get_recent_messages fuctions in database to return most recent messages older than oldest_msg_id and created more tests
+  **Changed Wire Protocol**:
+  1. [DONE] Modify client side request chat history request wire protocol to include oldest message
+  id in user's local chat history. This accomodates for the load chat function.
 
 *This document is a living record. Future updates and refinements will be made as the project evolves.*
