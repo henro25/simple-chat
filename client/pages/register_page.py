@@ -18,7 +18,7 @@ from configs.config import *
 
 class RegisterPage(QWidget):
     # Define a custom signal that will be emitted when registration is successful
-    registerSuccessful = pyqtSignal(list)
+    registerSuccessful = pyqtSignal(str, list)
     
     def __init__(self, Client, parent=None):
         super(RegisterPage, self).__init__(parent)
@@ -116,6 +116,6 @@ class RegisterPage(QWidget):
                 QMessageBox.critical(self, "Registration Error", f"Error: {ERROR_MSGS[errno]}")
             else:
                 convo_list = deserialize_chat_conversations(args)
-                self.registerSuccessful.emit(convo_list)
+                self.registerSuccessful.emit(username, convo_list)
         else:
             QMessageBox.critical(self, "Registration Error", "Please enter both username and password.")
