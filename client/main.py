@@ -40,7 +40,7 @@ class ChatApp(QMainWindow):
         self.mainMenu = MainMenu()
         self.loginPage = LoginPage(self.Client)
         self.registerPage = RegisterPage(self.Client)
-        self.listConvosPage = ListConvosPage()
+        self.listConvosPage = ListConvosPage(self.Client)
         self.messagingPage = MessagingPage(self.Client)
 
         # Add pages to stack
@@ -58,20 +58,28 @@ class ChatApp(QMainWindow):
         
         # Connect the custom signals to switch to either Conversation List or Chat Page when signaled
         self.loginPage.loginSuccessful.connect(
-            lambda convo_list: (
+            lambda username, convo_list: (
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
+                self.listConvosPage.set_username(username),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
         self.registerPage.registerSuccessful.connect(
-            lambda convo_list: (
+            lambda username, convo_list: (
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
+                self.listConvosPage.set_username(username),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
-        self.listConvosPage.conversationSelected.connect(lambda user: self.stack.setCurrentWidget(self.messagingPage))
+        self.listConvosPage.conversationSelected.connect(
+            lambda client, other_user, chat_history: (
+                self.messagingPage.setUsers(client, other_user),
+                self.messagingPage.populateChatHistory(chat_history),
+                self.stack.setCurrentWidget(self.messagingPage)
+            )
+        )
         self.messagingPage.backClicked.connect(lambda: self.stack.setCurrentWidget(self.listConvosPage))
     
     def closeEvent(self, event):
