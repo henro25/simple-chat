@@ -97,7 +97,7 @@ def handle_get_chat_history(args):
             formatted_messages = ""
         num_messages += 1
         message_text = message["message"]
-        id = message["id"] if message["sender"] == client else -1
+        id = message["id"]
         num_words = message_text.count(" ")+1
         cur_msg = f" {id} {num_words} {message_text}"
         formatted_messages += cur_msg
@@ -142,9 +142,18 @@ def handle_delete_messages(args):
         `1.0 DEL_MSG [msg ID]`
     """
     id = int(args[0])
-    success, errno = database.delete_message(id)
-    if success:
-        return f"1.0 DEL_MSG {id}"
+    recipient, errno = database.delete_message(id)
+    if recipient:
+        response = f"1.0 DEL_MSG {id}"
+        if recipient in active_clients:
+            print(recipient)
+            recipient_sock = active_clients[recipient]
+            try:
+                debug(f"Server: pushing message: {response}")
+                recipient_sock.sendall(response.encode('utf-8'))
+            except Exception as e:
+                print(f"Failed to push message to {recipient}: {e}")
+        return response
     else:
         return f"1.0 ERROR {errno}"
 

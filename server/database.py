@@ -302,7 +302,7 @@ def delete_message(message_id):
         message_id (int): The ID of the message to be deleted.
 
     Returns:
-        bool: True if deletion was successful, False otherwise.
+        (str, int): recipient of message, SUCCESS if deletion was successful, (None, ER_NO) otherwise.
     """
     conn = get_db_connection()
     cur = conn.cursor()
@@ -315,19 +315,19 @@ def delete_message(message_id):
 
     if not message:
         conn.close()
-        return False, ID_DNE  # ID DNE
+        return None, ID_DNE  # ID DNE
 
     # Delete the message
     try:
         cur.execute("""DELETE FROM messages WHERE id = ?""", (message_id,))
     except Exception as e:
         conn.close()
-        return False, DB_ERROR
+        return None, DB_ERROR
 
     conn.commit()
     conn.close()
     
-    return True, SUCCESS  # Deletion successful
+    return message[0]["recipient"], SUCCESS  # Deletion successful
     
 # ----------------------------
 # Additional Utility Functions

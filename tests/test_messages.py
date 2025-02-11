@@ -144,8 +144,9 @@ def test_delete_message():
     conn.close()
 
     # Delete the message
-    success, _ = database.delete_message(msg_id)
-    assert success, "Message should be successfully deleted."
+    recp, _ = database.delete_message(msg_id)
+    assert recp, "Message should be successfully deleted."
+    assert recp == recipient, "Should return correct recipient"
 
     # Ensure the message is removed
     conn = database.get_db_connection()
@@ -158,8 +159,8 @@ def test_delete_nonexistent_message():
     """
     Test deleting a message that doesn't exist.
     """
-    success, error_code = database.delete_message(99999)  # Nonexistent ID
-    assert not success, "Should return False when deleting a nonexistent message."
+    recipient, error_code = database.delete_message(99999)  # Nonexistent ID
+    assert not recipient, "Should return False when deleting a nonexistent message."
     assert error_code == ID_DNE, "Should return correct error code for nonexistent ID."
 
 def test_delete_multiple_messages():

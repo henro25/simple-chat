@@ -125,7 +125,7 @@ def handle_users(args, Client):
 def handle_incoming_message(args, Client):
     """Handles an incoming message pushed from the server."""
     sender = args[0]
-    msg_id = args[1]
+    msg_id = int(args[1])
     message = " ".join(args[2:])
 
     # Notify the UI to update the chat
@@ -148,7 +148,9 @@ def handle_ack(args, Client):
 
 def handle_delete(args, Client):
     msg_id = int(args[0])
-    Client.messaging_page.removeMessageDisplay(msg_id)
+    print(Client.messaging_page.message_info)
+    if msg_id in Client.messaging_page.message_info:
+        Client.messaging_page.removeMessageDisplay(msg_id)
 
 # def handle_error(page):
 
