@@ -104,18 +104,12 @@ class RegisterPage(QWidget):
     def attemptRegister(self):
         debug("Attempting to register...")
         username = self.usernameEdit.text().strip()
+        valid_username = (username) and (username.count(" ") < 1)
         password = self.passwordEdit.text().strip()
-        if username and password:
+        if valid_username and password:
             request = create_registration_request(username, password)
-            response = self.Client.send_request(request)
-            
-            _, command, args = parse_message(response)
-            
-            if command == "ERROR":
-                errno = int(args[0])
-                QMessageBox.critical(self, "Registration Error", f"Error: {ERROR_MSGS[errno]}")
-            else:
-                convo_list = deserialize_chat_conversations(args)
-                self.registerSuccessful.emit(username, convo_list)
+            self.Client.send_request(request)
+        elif not valid_username:
+            QMessageBox.critical(self, "Registration Error", "Please enter username without white space.")
         else:
             QMessageBox.critical(self, "Registration Error", "Please enter both username and password.")

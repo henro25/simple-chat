@@ -23,7 +23,7 @@ WRONG_PASS  = 3 # when client logs in, the password is incorrect
 DB_ERROR    = 4 # when server experiences a database error
 UNSUPPORTED_VERSION = 5 # when client sends a message with an unsupported version
 UNKNOWN_COMMAND = 6 # when client sends a message with an unknown command
-ID_DNE = 7 # when client tries to delete a message that does not exist in db
+ID_DNE = 7 # when client tries to delete an entry that does not exist in db
 
 ERROR_MSGS = {
     1: "Username already exists.",
@@ -41,3 +41,9 @@ def debug(message):
     """Print debug messages if DEBUG is True."""
     if DEBUG:
         print(f"[DEBUG] {message}")
+
+# Codes for pages
+REG_PG = 10
+LGN_PG = 11
+MSG_PG = 12
+CONVO_PG = 13

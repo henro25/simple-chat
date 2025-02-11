@@ -17,7 +17,7 @@ from configs.config import *
 
 class ListConvosPage(QWidget):
     # Signal emitted when a conversation is selected.
-    conversationSelected = pyqtSignal(str, str, list)
+    conversationSelected = pyqtSignal(list)
     
     def __init__(self, Client, parent=None):
         """
@@ -30,7 +30,6 @@ class ListConvosPage(QWidget):
         self.Client = Client
         self.chat_conversations = []  # List of tuples (user, num_unreads)
         self.filtered_conversations = []  # Copy used for filtering
-        self.username = None # Username of client
         self.initUI()
     
     def initUI(self):
@@ -151,13 +150,13 @@ class ListConvosPage(QWidget):
             ]
         self.populateConversations()
     
-    def set_username(self, username):
+    def setUsername(self, username):
         """
         Stores the username of current client.
         
         :param username: The username of client.
         """
-        self.username = username
+        self.Client.username = username
     
     def onConversationSelected(self, user):
         """
@@ -165,15 +164,13 @@ class ListConvosPage(QWidget):
         
         :param user: The username of the conversation selected.
         """
-        request = create_chat_history_request(self.username, user)
-        response = self.Client.send_request(request)
-        _, command, args = parse_message(response)
-        if command == "ERROR":
-            errno = int(args[0])
-            # QMessageBox.critical(self, "Chat History Error", f"Error: {ERROR_MSGS[errno]}")
-        else:
-            chat_history = deserialize_chat_history(args, self.username, user)
-            # Emit the signal to notify that a conversation was selected.
-            self.conversationSelected.emit(self.username, user, chat_history)
-        # Transition logic to the messaging_page can be handled in the main window.
+        self.Client.cur_convo = user
+        request = create_chat_history_request(self.Client.username, user)
+        self.Client.send_request(request)
+
+    def connectClient(self):
+        self.Client.list_convos_page = self
+        
+    def disconnectClient(self):
+        self.Client.list_convos_page = None
 

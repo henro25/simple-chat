@@ -7,6 +7,8 @@ Date: 2024-2-7
 
 from server import database
 from configs.config import *
+from server.state import active_clients
+
 
 def parse_message(message):
     """
@@ -35,7 +37,7 @@ def handle_create(args):
     username, password = args[0], args[1]
     success, errno = database.register_account(username, password)
     if success:
-        return handle_get_conversations(username)
+        return handle_get_conversations(username, REG_PG)
     else:
         return f"1.0 ERROR {errno}"
 
@@ -47,18 +49,18 @@ def handle_login(args):
     username, password = args[0], args[1]
     success, errno = database.verify_login(username, password)
     if success:
-        return handle_get_conversations(username)
+        return handle_get_conversations(username, LGN_PG)
     else:
         return f"1.0 ERROR {errno}"
 
-def handle_get_conversations(recipient):
+def handle_get_conversations(recipient, page_code):
     """
     Called when the client sends a successful CREATE or LOGIN message.
     Expects args: recipient (str).
     Returns a response in the format:
-      "1.0 USERS user1 num_unread1 user2 num_unread2 ..."
+      "1.0 USERS pagecode recipient user1 num_unread1 user2 num_unread2 ..."
     """
-    response = "1.0 USERS"
+    response = f"1.0 USERS {page_code} {recipient}"
     for user, unread in database.get_conversations(recipient):
         response += f" {user} {unread}"
     return response
@@ -77,10 +79,13 @@ def handle_get_chat_history(args):
     client = args[0]
     user2 = args[1]
     oldest_msg_id = int(args[2])
+    page_code = MSG_PG if oldest_msg_id != -1 else CONVO_PG
     history = database.get_recent_messages(client, user2, oldest_msg_id=oldest_msg_id)
+    response = f"1.0 MSGS {page_code}"
     if not history:
-        return "1.0 MSGS "
-    response = "1.0 MSGS " + ("1" if history[0]["sender"] == client else "0")
+        return response
+    is_client = int(history[0]["sender"] == client)
+    response = f"{response} {is_client}"
     num_messages = 0
     cur_sender = history[0]["sender"]
     formatted_messages = ""
@@ -111,8 +116,20 @@ def handle_send_message(args):
     """
     sender = args[0]
     recipient = args[1]
-    message = args[2]
+    message = ' '.join(args[2: ])
     msg_id = database.store_message(sender, recipient, message)
+
+    # Send the message to the recipient if they are online
+    push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
+    print(active_clients)
+    if recipient in active_clients:
+        recipient_sock = active_clients[recipient]
+        try:
+            debug(f"Server: pushing message: {message}")
+            recipient_sock.sendall(push_message.encode('utf-8'))
+        except Exception as e:
+            print(f"Failed to push message to {recipient}: {e}")
+
     return f"1.0 ACK {msg_id}"
 
 def handle_delete_messages(args):

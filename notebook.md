@@ -218,23 +218,23 @@ Develop a messaging system using a client-server architecture with two different
   - **Example:** `1.0 ERROR 1`
   
 - **User List & Unread Count:**
-  - **Format:** `1.0 USERS [list of (users, number of unread messages)]`
-  - **Example:** `1.0 USERS bridgetma04 6 jwaldo 1 ewang 2`
+  - **Format:** `1.0 USERS [page code] [client username] [list of (users, number of unread messages)]`
+  - **Example:** `1.0 USERS 10 henro bridgetma04 6 jwaldo 1 ewang 2`
   
 - **Chat History:**
   - **Format:**  
-    `1.0 MSGS [1 if user who sent the ealiest message is same as the user receiving this history else 0] [num msgs] [msg ID (if 1), num words, msg1] [msg ID (if 1), num words, msg2] ...`
+    `1.0 MSGS [page code] [1 if user who sent the ealiest message is same as the user receiving this history else 0] [num msgs] [msg ID, num words, msg1] [msg ID, num words, msg2] ...`
   - **Example:**  
-    - User this message is being sent to is user1: `1.0 MSGS 1 3 111 2 hello bridget 112 3 it's henry ! 113 1 Hi!`
-    - User this message is being sent to is NOT user1: `1.0 MSGS 0 2 2 hello bridget 3 it's henry ! 1 Hi! 1 2241 2 Hello Back`
+    - User this message is being sent to is user1: `1.0 MSGS 13 1 3 111 2 hello bridget 112 3 it's henry ! 113 1 Hi!`
+    - User this message is being sent to is NOT user1: `1.0 MSGS 12 0 2 2 hello bridget 3 it's henry ! 1 Hi! 1 2241 2 Hello Back`
 
 - **Client Sent Message Acknowledgement**
   - **Format:** `1.0 ACK [msg ID]`
   - **Example:** `1.0 ACK 2241`
   
 - **Real-Time Send Message:**
-  - **Format:** `1.0 PUSH_MSG [recipient] [msg]`
-  - **Example:** `1.0 PUSH_MSG bridgetma04 hello bridget`
+  - **Format:** `1.0 PUSH_MSG [sender] [msg_id] [msg]`
+  - **Example:** `1.0 PUSH_MSG henro 111 hello bridget`
   
 - **Real-Time Delete Message:**
   - **Format:** `1.0 DEL_MSG [msg IDs]`
@@ -398,7 +398,7 @@ Develop a messaging system using a client-server architecture with two different
 
 ---
 
-# 2/7/24
+# 2/7/25
 
 ## Implementing Conversation List Page UI
   **Client-side**:
@@ -418,7 +418,7 @@ Develop a messaging system using a client-server architecture with two different
 
 ---
 
-# 2/8/24
+# 2/8/25
 
 ## Implementing Messaging Page UI
   **Client-side**:
@@ -442,7 +442,7 @@ Develop a messaging system using a client-server architecture with two different
 
 ---
 
-# 2/9/24
+# 2/9/25
 
 ## Implementing Messaging Page UI
   **Client-side**:
@@ -451,11 +451,68 @@ Develop a messaging system using a client-server architecture with two different
      2. [DONE] Add logic and parsing to request for more chat history after user clicks load chat button
      3. [DONE] Add functionality to maintain scroll position after added chat history
   2. [] Real time message receiving when other user sends message while chatting with them
+     1. [] User listens for incoming messages
+     2. [] Add functionality and logic to handle incoming messages and only notify messaging page to display if it is correct sender
+     3. [] Messaging page update chat window when message arrives
+  3. [] Enforce username to not have white spaces for the ease of parsing wire portocols
   **Server-side**:
   1. [DONE] Modify handle_get_chat_history protocol to complete load chat functionality on client side
   2. [DONE] Modify get_recent_messages fuctions in database to return most recent messages older than oldest_msg_id and created more tests
+  3. [] Real time deliveries to users who are online
+     1. [] Server to track active clients
+     2. [] Modify protocol to handle message sending to push to recipient if they are online
+     3. [] Modify logic in main to connect client to the current messaging page they are on and disconnect when they leave
   **Changed Wire Protocol**:
   1. [DONE] Modify client side request chat history request wire protocol to include oldest message
   id in user's local chat history. This accomodates for the load chat function.
+  2. [DONE] Modify server side push message request wire protocol to include username of sender instead of recipient since the recipient needs to know who sent them the message
+
+---
+
+# 2/10/25
+
+## Implementing Messaging Page UI
+  **Client-side**:
+  1. [DONE] Real time message receiving when other user sends message while chatting with them
+     1. [DONE] User listens for incoming messages
+     2. [DONE] Add functionality and logic to handle incoming messages and only notify messaging page to display if it is correct sender
+     3. [DONE] Messaging page update chat window when message arrives
+  2. [DONE] Enforce username to not have white spaces for the ease of parsing wire portocols
+  **Server-side**:
+  1. [DONE] Real time deliveries to users who are online
+     1. [DONE] Server to track active clients
+     2. [DONE] Modify protocol to handle message sending to push to recipient if they are online
+     3. [DONE] Modify logic in main to connect client to the current messaging page they are on and disconnect when they leave
+  2. [DONE] Create dict to track active users, logic for handling check if user active and updating current active users
+  **Changed Wire Protocol**:
+  1. [DONE] Modify server side user list wire protocol to include username of client and which page the request was coming from
+  2. [DONE] Modify server side chat history wire protocol to include which page the request was coming from and include all message IDs
+  3. [DONE] Modify server side push message wire protocol to include message ID
+  **Changed Config**:
+  1. [DONE] Added code for pages
+
+
+---
+
+# 2/11/25
+
+## Implementing Messaging Page UI
+  **Client-side**:
+  1. [] Real time message deleting when other user deletes message while chatting with them
+     1. [] User listens for incoming deletion messages
+     2. [] Add functionality and logic to handle incoming deletions and only notify messaging page to display if it is correct sender
+     3. [] Messaging page update chat window when deletion arrives
+     4. [] Create deletion signal on messaging page for ease of deletion
+  2. [] Real time message delivery update unread count
+  3. [] Complete back button functionality
+  4. [] Support JSON
+  **Server-side**:
+  1. [] Real time deletions to users who are online
+     1. [] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
+  2. [] Handle updating unread count after delivery
+  2. [] Support JSON
+  **Changed Wire Protocol**:
+  1. [] 
+
 
 *This document is a living record. Future updates and refinements will be made as the project evolves.*

@@ -8,36 +8,42 @@ Date: 2024-2-6
 import selectors
 import socket
 import types
-from . import database  # Your database module for registration/login
+from . import database  # database module for registration/login
 
-from server.protocols.custom_protocol import process_message
+import server.protocols.custom_protocol as custom_protocol
 from configs.config import *
+from server.state import active_clients
 
 # Create a default selector
 sel = selectors.DefaultSelector()
 
+# # Create a dict to track active users
+# active_clients = {}
+
 def accept_wrapper(sock):
-    conn, addr = sock.accept()  # Accept the connection
+    """Accept new connections and register them."""
+    conn, addr = sock.accept()
     print(f"Accepted connection from {addr}")
     conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
+    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"", username=None)
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
     sel.register(conn, events, data=data)
 
 def service_connection(key, mask):
+    """Handles client-server communication."""
+
     sock = key.fileobj
     data = key.data
 
     if mask & selectors.EVENT_READ:
         try:
-            recv_data = sock.recv(1024)  # Read incoming data
+            recv_data = sock.recv(1024)
         except Exception as e:
             print(f"Error reading from {data.addr}: {e}")
             recv_data = None
 
         if recv_data:
             data.inb += recv_data
-            # If newline is detected, process complete messages.
             while b"\n" in data.inb:
                 message_bytes, data.inb = data.inb.split(b"\n", 1)
                 try:
@@ -45,12 +51,25 @@ def service_connection(key, mask):
                 except Exception as e:
                     print(f"Decoding error: {e}")
                     message_str = ""
+
+                _, command, args =custom_protocol.parse_message(message_str)
+
                 print(f"Received message from {data.addr}: {message_str}")
-                response = process_message(message_str)
-                print(f"Sending response: {response}")
-                data.outb += response.encode("utf-8") + b"\n"
+                response = custom_protocol.process_message(message_str)
+                # Handle login to track active clients
+                if command == "LOGIN" or command == "CREATE" and response[:10] != "1.0 ERROR":
+                    username = args[0]
+                    data.username = username # store username of data
+                    active_clients[username] = sock  # Track active user
+                    print(active_clients)
+                    print(f"User {username} is now online.")
+
+                if response:
+                    data.outb += response.encode("utf-8") + b"\n"
         else:
-            print(f"Closing connection to {data.addr}")
+            if data.username:
+                active_clients.pop(data.username, None)  # Remove user from active clients
+                print(f"User {data.username} disconnected.")
             sel.unregister(sock)
             sock.close()
 

@@ -5,6 +5,14 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-7
 """
 
+from configs.config import *
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel,
+    QScrollArea, QSizePolicy, QMessageBox, QApplication
+)
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, pyqtSignal
+
 def parse_message(message):
     """
     Parse a protocol message into version, command, and arguments.
@@ -39,7 +47,7 @@ def create_login_request(username, password):
 def deserialize_chat_conversations(chat_conversations):
     """
     Parse a server response of the form:
-      "1.0 USERS user1 unread1 user2 unread2 ..."
+      "1.0 USERS page_code client_username user1 unread1 user2 unread2 ..."
     into a list of tuples: [(user1, num_unread1), (user2, num_unread2), ...].
     """
     convo_list = []
@@ -59,15 +67,15 @@ def create_chat_history_request(username, other_user, oldest_msg_id=-1):
     """
     return f"1.0 READ {username} {other_user} {oldest_msg_id}\n"
 
-def deserialize_chat_history(chat_history, username, other_user):
+def deserialize_chat_history(chat_history):
     """
     Parse a server response of the form:
-      `1.0 MSGS [1 if user who sent the ealiest message is same as the user 
+      `1.0 MSGS [page code] [1 if user who sent the ealiest message is same as the user 
       receiving this history else 0] [num msgs] [msg ID (if 1), num words, msg1] 
       [msg ID (if 1), num words, msg2] ...`
     into a list of tuples: [(username, msg ID, message), (username, msg ID, message), ...].
     """
-    if len(chat_history)==0:
+    if not chat_history:
         return []
     message_list = []
     is_client = int(chat_history[0])
@@ -83,9 +91,8 @@ def deserialize_chat_history(chat_history, username, other_user):
                 id = int(chat_history[ind])
                 num_words = int(chat_history[ind+1])
                 ind += 2
-                user = username if is_client else other_user
                 msg = ' '.join(chat_history[ind:ind+num_words])
-                message_list.append((user, id, msg))
+                message_list.append((is_client, id, msg))
                 ind += num_words
             except ValueError:
                 num_messages = 0
@@ -99,16 +106,72 @@ def create_send_message_request(username, other_user, message):
     """
     return f"1.0 SEND {username} {other_user} {message}\n"
 
-def deserialize_message_acknowledgement(ack):
-    """
-    Parse a server response of the form:
-      `1.0 ACK [msg ID]`
-    into a msg ID
-    """
-    return int(ack[0])
-
 def create_delete_message_request(msg_id):
     """
     Construct a delete message request message.
     """
     return f"1.0 DEL_MSG {msg_id}\n"
+
+def handle_users(args, Client):
+    """Handles a list of users sent from server."""
+    page_code = int(args[0])
+    username = args[1]
+    convo_list = deserialize_chat_conversations(args[2:])
+    if page_code == REG_PG:
+        Client.register_page.registerSuccessful.emit(username, convo_list)
+    elif page_code == LGN_PG:
+        Client.login_page.loginSuccessful.emit(username, convo_list)
+
+def handle_incoming_message(args, Client):
+    """Handles an incoming message pushed from the server."""
+    sender = args[0]
+    msg_id = args[1]
+    message = " ".join(args[2:])
+
+    # Notify the UI to update the chat
+    if Client.messaging_page:
+        Client.messaging_page.displayIncomingMessage(sender, msg_id, message)
+
+def handle_chat_history(args, Client):
+    """Handles chat history sent from server."""
+    page_code = int(args[0])
+    chat_history = deserialize_chat_history(args[1:])
+    if page_code==CONVO_PG:
+        Client.list_convos_page.conversationSelected.emit(chat_history)
+    else:
+        Client.messaging_page.addChatHistory(chat_history)
+
+def handle_ack(args, Client):
+    """Handles message sent acknowledgement sent from server."""
+    msg_id = int(args[0])
+    Client.messaging_page.displaySentMessage(msg_id)
+
+def handle_delete(args, Client):
+    msg_id = int(args[0])
+    Client.messaging_page.removeMessageDisplay(msg_id)
+
+# def handle_error(page):
+
+def process_message(message, Client):
+    """
+    Process a message string according to our custom protocol.
+    Dispatches to the appropriate handler.
+    """
+    version, command, args = parse_message(message)
+    if version not in SUPPORTED_VERSIONS:
+        return f"1.0 ERROR {UNSUPPORTED_VERSION}"
+    
+    if command == "USERS":
+        handle_users(args, Client)
+    elif command == "MSGS":
+        handle_chat_history(args, Client)
+    elif command == "ACK":
+        handle_ack(args, Client)
+    elif command == "DEL_MSG":
+        handle_delete(args, Client)
+    elif command == "PUSH_MSG":
+        handle_incoming_message(args, Client)
+    # elif command == "ERROR":
+    #     handle_error()
+    else:
+        print(f"1.0 ERROR {UNKNOWN_COMMAND}")

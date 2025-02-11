@@ -16,6 +16,7 @@ from client.protocols.custom_protocol import *
 from configs.config import *
 
 class ChatMessageWidget(QWidget):
+
     def __init__(self, message_text, message_id, is_client, parent=None):
         super(ChatMessageWidget, self).__init__(parent)
         layout = QHBoxLayout(self)
@@ -38,6 +39,7 @@ class ChatMessageWidget(QWidget):
         self.message_id = message_id
         self.setLayout(layout)
 
+
 class MessagingPage(QWidget):
     backClicked = pyqtSignal()  # Signal emitted when the Back button is pressed.
     
@@ -46,9 +48,9 @@ class MessagingPage(QWidget):
         self.Client = Client
         self.anim = None  # Keep a reference to the current animation.
         self.chat_history = []  # List to store chat history
+        self.send_queue = [] # Queue to send message
+        self.delete_queue = [] # Queue to delete messgae
         self.message_info = {} # Dict that maps message id to sender and text
-        self.client_username = None # Username of client
-        self.other_user = None # Username of other user
         self.initUI()
 
     def initUI(self):
@@ -144,56 +146,48 @@ class MessagingPage(QWidget):
         # Connect the Send button and Return key to sendMessage.
         self.btnSend.clicked.connect(self.sendMessage)
         self.messageEdit.returnPressed.connect(self.sendMessage)
-    
-    def setUsers(self, client, other_user):
-        self.client_username = client
-        self.other_user = other_user
 
     def sendMessage(self):
         message = self.messageEdit.text().strip()
         if message:
-            user = self.client_username
+            user = self.Client.username
             # Create and send request to server to send message
-            request = create_send_message_request(user, self.other_user, message)
-            response = self.Client.send_request(request)
-            _, command, args = parse_message(response)
-            if command == "ERROR":
-                errno = int(args[0])
-                QMessageBox.critical(self, "Send Message Error", f"Error: {ERROR_MSGS[errno]}")
-            else:
-                # get message id
-                msg_id = deserialize_message_acknowledgement(args)
-                # Add message to chat history
-                self.chat_history.append(msg_id)
-                self.message_info[msg_id] = (user, message)
-                # Create a new message widget.
-                widget = ChatMessageWidget(f"<b>You:</b> {message}", message_id=msg_id, is_client=1)
-                widget.delete_button.clicked.connect(lambda: self.deleteMessage(widget))
-                self.chat_layout.addWidget(widget)
-                self.messageEdit.clear()
-                # Use a slight delay before scrolling so the widget is fully added.
-                QTimer.singleShot(50, self.scrollToBottom)
+            self.send_queue.append(message)
+            request = create_send_message_request(user, self.Client.cur_convo, message)
+            self.Client.send_request(request)
+    
+    def displaySentMessage(self, msg_id):
+        self.chat_history.append(msg_id)
+        message = self.send_queue.pop(0)
+        self.message_info[msg_id] = (self.Client.username, message)
+        # Create a new message widget.
+        widget = ChatMessageWidget(f"<b>You:</b> {message}", message_id=msg_id, is_client=1)
+        widget.delete_button.clicked.connect(lambda _,  mid=msg_id: self.deleteMessage(mid))
+        self.chat_layout.addWidget(widget)
+        self.messageEdit.clear()
+        # Use a slight delay before scrolling so the widget is fully added.
+        QTimer.singleShot(50, self.scrollToBottom)
 
-    def deleteMessage(self, widget):
+    def deleteMessage(self, msg_id):
         """Deletes the message and sends a request to server to delete the message from 
         chat history."""
-        user = self.client_username
-        message = widget.message_label.text()
-        msg_id = widget.message_id
         # Create and send request to server to delete a message
+        print(msg_id)
         request = create_delete_message_request(msg_id)
-        response = self.Client.send_request(request)
-        _, command, args = parse_message(response)
-        if command == "ERROR":
-            errno = int(args[0])
-            QMessageBox.critical(self, "Delete Message Error", f"Error: {ERROR_MSGS[errno]}")
-        else:
-            # Remove from local chat history
-            self.chat_history.remove(msg_id)
-            del self.message_info[msg_id]
-            self.chat_layout.removeWidget(widget)
-            widget.deleteLater()
-            QTimer.singleShot(50, self.scrollToBottom)
+        self.Client.send_request(request)
+
+    def removeMessageDisplay(self, msg_id):
+        self.chat_history.remove(msg_id)
+        del self.message_info[msg_id]
+        for i in range(self.chat_layout.count()):
+            item = self.chat_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if hasattr(widget, 'message_id') and widget.message_id == msg_id:
+                    self.chat_layout.removeWidget(widget)
+                    widget.deleteLater()
+                    break  # Stop once found
+
 
     def scrollToBottom(self):
         """Smoothly scrolls the chat area to the bottom using QPropertyAnimation."""
@@ -216,13 +210,12 @@ class MessagingPage(QWidget):
         
         self.chat_history = [] # Reset stored chat history
         # Populate chat messages in the UI
-        for sender, msg_id, message in chat_history:
-            is_client = 1 if sender==self.client_username else 0
-            sender = "You" if is_client else sender
+        for is_client, msg_id, message in chat_history:
+            sender = "You" if is_client else self.Client.cur_convo
             formatted_msg = f"<b>{sender}:</b> {message}"
             widget = ChatMessageWidget(formatted_msg, message_id=msg_id, is_client=is_client)
             if is_client:
-                widget.delete_button.clicked.connect(lambda: self.deleteMessage(widget))
+                widget.delete_button.clicked.connect(lambda _, mid=msg_id: self.deleteMessage(mid))
             self.chat_layout.addWidget(widget)
             self.chat_history.append(msg_id)
             self.message_info[msg_id] = (sender, message)
@@ -236,40 +229,32 @@ class MessagingPage(QWidget):
         oldest_msg_id = self.chat_history[0] if self.chat_history else -1
 
         # Create and send request to fetch older messages
-        request = create_chat_history_request(self.client_username, self.other_user, oldest_msg_id)
-        response = self.Client.send_request(request)
-        _, command, args = parse_message(response)
+        request = create_chat_history_request(self.Client.username, self.Client.cur_convo, oldest_msg_id)
+        self.Client.send_request(request)
 
-        # Deserialize received chat history
-        earlier_messages = deserialize_chat_history(args, self.client_username, self.other_user)
-
+    def addChatHistory(self, earlier_messages):
         if not earlier_messages:
             QMessageBox.information(self, "Load Chat", "No more chat history available.")
             return
         
         # Get the vertical scrollbar
         scroll_bar = self.chat_area.verticalScrollBar()
-        
+
         # Capture the current scroll position relative to the first visible message
         prev_scroll_value = scroll_bar.value()
         prev_max_scroll = scroll_bar.maximum()
 
-        # Save current height of the chat area
-        prev_chat_height = self.chat_area.viewport().height()
-
         # Prepend earlier messages to chat layout
-        for sender, msg_id, message in reversed(earlier_messages):  # Reverse to maintain chronological order
+        for is_client, msg_id, message in reversed(earlier_messages):  # Reverse to maintain chronological order
             if msg_id in self.chat_history:
                 continue  # Prevent duplicates
-
-            is_client = 1 if sender == self.client_username else 0
-            sender_display = "You" if is_client else sender
-            formatted_msg = f"<b>{sender_display}:</b> {message}"
+            sender = "You" if is_client else self.Client.cur_convo
+            formatted_msg = f"<b>{sender}:</b> {message}"
 
             widget = ChatMessageWidget(formatted_msg, message_id=msg_id, is_client=is_client)
             if is_client:
-                widget.delete_button.clicked.connect(lambda: self.deleteMessage(widget))
-            
+                widget.delete_button.clicked.connect(lambda _,  mid=msg_id: self.deleteMessage(mid))
+    
             # Insert message at the top
             self.chat_layout.insertWidget(0, widget)
             
@@ -294,8 +279,28 @@ class MessagingPage(QWidget):
             item = self.chat_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self.Client.cur_convo = None # reset the current conversation for client
         self.backClicked.emit()
 
     def updateUnreadCount(self, count):
         """Update the unread count label in the header."""
         self.unread_label.setText(f"{count} unread")
+
+    def displayIncomingMessage(self, sender, msg_id, message):
+        """Displays a new incoming message in the chat box and scrolls to bottom."""
+        if sender == self.Client.cur_convo:  # Only display if in the correct chat
+            formatted_msg = f"<b>{sender}:</b> {message}"
+            widget = ChatMessageWidget(formatted_msg, message_id=msg_id, is_client=0)
+
+            self.chat_layout.addWidget(widget)
+            self.chat_history.append(msg_id)
+            self.message_info[msg_id] = (sender, message)
+
+            # Auto-scroll to the new message
+            QTimer.singleShot(50, self.scrollToBottom)
+
+    def connectClient(self):
+        self.Client.messaging_page = self
+        
+    def disconnectClient(self):
+        self.Client.messaging_page = None

@@ -109,15 +109,6 @@ class LoginPage(QWidget):
         password = self.passwordEdit.text().strip()
         if username and password:
             request = create_login_request(username, password)
-            response = self.Client.send_request(request)
-            
-            _, command, args = parse_message(response)
-            
-            if command == "ERROR":
-                errno = int(args[0])
-                QMessageBox.critical(self, "Login Error", f"Error: {ERROR_MSGS[errno]}")
-            else:
-                convo_list = deserialize_chat_conversations(args)
-                self.loginSuccessful.emit(username, convo_list)
+            self.Client.send_request(request)
         else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
