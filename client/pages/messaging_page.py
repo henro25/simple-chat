@@ -172,7 +172,7 @@ class MessagingPage(QWidget):
         """Deletes the message and sends a request to server to delete the message from 
         chat history."""
         # Create and send request to server to delete a message
-        print(msg_id)
+        debug(msg_id)
         request = create_delete_message_request(msg_id)
         self.Client.send_request(request)
 

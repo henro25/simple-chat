@@ -54,22 +54,22 @@ def service_connection(key, mask):
 
                 _, command, args =custom_protocol.parse_message(message_str)
 
-                print(f"Received message from {data.addr}: {message_str}")
+                debug(f"Received message from {data.addr}: {message_str}")
                 response = custom_protocol.process_message(message_str)
                 # Handle login to track active clients
                 if command == "LOGIN" or command == "CREATE" and response[:10] != "1.0 ERROR":
                     username = args[0]
                     data.username = username # store username of data
                     active_clients[username] = sock  # Track active user
-                    print(active_clients)
-                    print(f"User {username} is now online.")
+                    # debug(active_clients)
+                    debug(f"User {username} is now online.")
 
                 if response:
                     data.outb += response.encode("utf-8") + b"\n"
         else:
             if data.username:
                 active_clients.pop(data.username, None)  # Remove user from active clients
-                print(f"User {data.username} disconnected.")
+                debug(f"User {data.username} disconnected.")
             sel.unregister(sock)
             sock.close()
 
