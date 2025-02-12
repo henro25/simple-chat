@@ -86,10 +86,14 @@ def deserialize_chat_history(chat_history):
     message_list = []
     is_client = int(chat_history[0])
     ind = 1
+    num_msgs_read = 0
     while ind < len(chat_history):
         try:
             num_messages = int(chat_history[ind])
             ind += 1
+            # update the number of messages read from the other user; used to update num_unread
+            if not is_client:
+                num_msgs_read += num_messages
         except ValueError:
             num_messages = 0
         while num_messages > 0 and ind < len(chat_history):
@@ -104,7 +108,8 @@ def deserialize_chat_history(chat_history):
                 num_messages = 0
             num_messages -= 1
         is_client = abs(1-is_client)
-    return message_list
+    
+    return num_msgs_read, message_list
 
 def create_send_message_request(username, other_user, message):
     """
@@ -141,9 +146,20 @@ def handle_incoming_message(args, Client):
 def handle_chat_history(args, Client):
     """Handles chat history sent from server."""
     page_code = int(args[0])
-    chat_history = deserialize_chat_history(args[1:])
+    num_msgs_read, chat_history = deserialize_chat_history(args[1:])
     if page_code==CONVO_PG:
+        cur_conversations = Client.list_convos_page.chat_conversations
         Client.list_convos_page.conversationSelected.emit(chat_history)
+        
+        # update num_unreads and reorder convos so that current convo is at top of convo list
+        debug(f"Curr convo: {Client.cur_convo}")
+        for i in range(len(cur_conversations)):
+            if cur_conversations[i][0] == Client.cur_convo:
+                updated_num_unreads = max(cur_conversations[i][1] - num_msgs_read, 0)
+                debug(f"updated num unreads for {Client.cur_convo} to {updated_num_unreads}")
+                del cur_conversations[i]
+                cur_conversations.insert(0, (Client.cur_convo, updated_num_unreads))
+                break
     else:
         Client.messaging_page.addChatHistory(chat_history)
 

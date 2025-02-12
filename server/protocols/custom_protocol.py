@@ -95,6 +95,7 @@ def handle_get_chat_history(args):
     is_client = int(history[0]["sender"] == client)
     response = f"{response} {is_client}"
     num_messages = 0
+    num_messages_from_sender_read = 0
     cur_sender = history[0]["sender"]
     formatted_messages = ""
     for message in history:
@@ -104,6 +105,8 @@ def handle_get_chat_history(args):
             num_messages = 0
             formatted_messages = ""
             cur_sender = message["sender"]
+        else:
+            num_messages_from_sender_read += 1
         num_messages += 1
         message_text = message["message"]
         id = message["id"]
@@ -112,6 +115,12 @@ def handle_get_chat_history(args):
         formatted_messages += cur_msg
     formatted_messages = f" {num_messages}{formatted_messages}"
     response += formatted_messages
+    
+    # Update the number of unread messages for the recipient
+    cur_num_unread = database.get_num_unread(client)
+    database.update_num_unread(client, user2, -min(cur_num_unread, num_messages_from_sender_read))
+    debug(f"{client} read {min(cur_num_unread, num_messages_from_sender_read)} unread messages from {user2}")
+    
     return response
 
 def handle_send_message(args):
@@ -132,16 +141,19 @@ def handle_send_message(args):
         message = ' '.join(args[2: ])
         msg_id = database.store_message(sender, recipient, message)
 
-        # Send the message to the recipient if they are online
-        push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
-        # debug(active_clients)
-        if recipient in active_clients:
-            recipient_sock = active_clients[recipient]
-            try:
-                debug(f"Server: pushing message: {message}")
-                recipient_sock.sendall(push_message.encode('utf-8'))
-            except Exception as e:
-                print(f"Failed to push message to {recipient}: {e}")
+    # Send the message to the recipient if they are online
+    push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
+    # debug(active_clients)
+    if recipient in active_clients:
+        recipient_sock = active_clients[recipient]
+        try:
+            debug(f"Server: pushing message: {message}")
+            recipient_sock.sendall(push_message.encode('utf-8'))
+        except Exception as e:
+            print(f"Failed to push message to {recipient}: {e}")
+    
+    # Update the number of unread messages for the recipient
+    database.update_num_unread(recipient, sender, 1)
 
     return f"1.0 ACK {msg_id}"
 

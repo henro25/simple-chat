@@ -14,7 +14,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer
 from configs.config import *
-# import threading
 
 from .pages.main_menu import MainMenu
 from .pages.login_page import LoginPage
@@ -47,6 +46,8 @@ class ChatApp(QMainWindow):
         # Connect pages to client
         self.Client.register_page = self.registerPage
         self.Client.login_page = self.loginPage
+        self.Client.list_convos_page = self.listConvosPage
+        self.Client.messaging_page = self.messagingPage
 
         # Add pages to stack
         self.stack.addWidget(self.mainMenu)
@@ -67,7 +68,6 @@ class ChatApp(QMainWindow):
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.listConvosPage.setUsername(username),
-                self.listConvosPage.connectClient(),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
@@ -76,22 +76,17 @@ class ChatApp(QMainWindow):
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.listConvosPage.setUsername(username),
-                self.listConvosPage.connectClient(),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
         self.listConvosPage.conversationSelected.connect(
             lambda chat_history: (
-                self.listConvosPage.disconnectClient(),
-                self.messagingPage.connectClient(),
                 self.messagingPage.populateChatHistory(chat_history),
                 self.stack.setCurrentWidget(self.messagingPage)
             )
         )
         self.messagingPage.backClicked.connect(
             lambda: (
-                self.messagingPage.disconnectClient(),
-                self.listConvosPage.connectClient(),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
@@ -123,8 +118,6 @@ if __name__ == '__main__':
 
     window = ChatApp()
     window.show()
-    # client_thread = threading.Thread(target=window.Client.run, daemon=True)
-    # client_thread.start()
     timer = QTimer()
     timer.timeout.connect(window.Client.run)
     timer.start(100)

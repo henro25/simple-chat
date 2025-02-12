@@ -11,6 +11,8 @@ A simple, client-server chat application that allows users to send and receive t
 
 Starting the server: in terminal and from the root directory, run `python -m server.server`
 
+Note: currently, if you want to run on your actual IP address, enter the command `ipconfig getifaddr en0` (for macOS) in terminal and find your IP address. Then, replace the SERVER_HOST in configs/config.py with this IP address, making sure it is still in single quotes!
+
 Starting the client: 
 
 1. In another terminal window and from the root directory, activate the environment again `source venv/bin/activate`

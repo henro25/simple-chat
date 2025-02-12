@@ -47,6 +47,49 @@ def setup_database():
     # Teardown: Remove the test database after tests are finished.
     if os.path.exists(test_db):
         os.remove(test_db)
+        
+# ----------------------------
+# Tests for get_num_unread
+# ----------------------------
+        
+def test_get_num_unread_no_entries():
+    """
+    Test that get_num_unread() returns 0 when there are no unread messages for the recipient.
+    """
+    recipient = "alice"
+    # Since no unread messages have been added, the total should be 0.
+    unread_count = database.get_num_unread(recipient)
+    print(unread_count)
+    assert unread_count == 0, "Expected 0 unread messages when no entries exist."
+
+def test_get_num_unread_with_multiple_senders():
+    """
+    Test that get_num_unread() returns the correct sum when there are unread messages from multiple senders.
+    """
+    recipient = "alice"
+    
+    # Insert unread messages from different senders.
+    database.update_num_unread(recipient, "bob", 2)
+    database.update_num_unread(recipient, "charlie", 3)
+    
+    # The total unread should be 2 + 3 = 5.
+    unread_count = database.get_num_unread(recipient)
+    assert unread_count == 5, f"Expected 5 unread messages, got {unread_count}"
+
+def test_get_num_unread_after_updates():
+    """
+    Test that get_num_unread() reflects the updated total after multiple updates to the same conversation.
+    """
+    recipient = "alice"
+    sender = "david"
+    
+    # Insert an entry and then update it.
+    database.update_num_unread(recipient, sender, 1)
+    database.update_num_unread(recipient, sender, 4)
+    
+    # The total unread for recipient 'alice' from 'david' should now be 1 + 4 = 5.
+    unread_count = database.get_num_unread(recipient)
+    assert unread_count == 5, f"Expected 5 unread messages, got {unread_count}"
 
 # ----------------------------
 # Tests for update_num_unread

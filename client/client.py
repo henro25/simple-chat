@@ -67,7 +67,6 @@ class Client:
             self.sock.sendall(request.encode('utf-8'))
         except Exception as e:
             print(f"Error sending request: {e}")
-        # self.outgoing_requests.append(request)
 
     def run(self):
         """Main event loop to listen for messages and handle requests."""

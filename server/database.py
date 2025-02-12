@@ -233,6 +233,32 @@ def get_conversations(recipient):
     
     return conversations
 
+def get_num_unread(user):
+    """
+    Get the total number of unread messages for a specific user.
+
+    Parameters:
+      user (str): The user whose unread messages should be counted.
+    
+    Returns:
+      int: The total number of unread messages.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Sum all unread counts for the given user
+    cur.execute("""
+        SELECT SUM(unread_count) AS total_unread
+        FROM num_unread_msgs
+        WHERE recipient = ?
+    """, (user,))
+    row = cur.fetchone()
+    conn.close()
+    
+    # If there are no unread messages, SUM returns None, so we return 0.
+    return row["total_unread"] if row["total_unread"] is not None else 0
+
+
 def update_num_unread(recipient, sender, num_unread):
     """
     Update the num_unread_msgs table for a new message from sender to recipient.
