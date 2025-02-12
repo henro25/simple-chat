@@ -510,6 +510,9 @@ Develop a messaging system using a client-server architecture with two different
      1. [] Request chat history update unread count (unread count also updated on messaging page)
      2. [] Real time message delivery update unread count
   3. [] Complete back button functionality
+  4. [] Support JSON
+  5. [] Handle offline unreads
+  6. [] Handle online unreads
   4. [] Delete Account
      1. [] Create button top right of list conversations page
      2. [] Send delete request then go back to main menu
@@ -518,6 +521,9 @@ Develop a messaging system using a client-server architecture with two different
   1. [DONE] Real time deletions to users who are online
      1. [DONE] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
   2. [] Handle updating unread count after delivery
+  3. [] Support JSON
+  4. [] Handle offline unreads
+  6. [] Handle online unreads
   3. [] Delete Account
      1. [] Create deactivated account db for deactivated users
      2. [] Does not accept send message requests to deactivated username
