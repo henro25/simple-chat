@@ -1,180 +1,292 @@
-# """
-# Module Name: test_server.py
-# Description: Unit tests for the server module. These tests simulate client connections
-#              (with custom protocol, JSON protocol, unsupported protocol, disconnection, and
-#              write events) by using dummy socket objects and fake selector keys.
-# Author: Henry Huang and Bridget Ma
-# Date: 2024-2-6
-# """
+"""
+Module Name: test_server.py
+Description: Unit tests for the server module. These tests simulate client connections
+             and verify that responses (both success and failure) are returned when
+             the server (via its service_connection function) calls various database
+             functions (registration, login, sending messages, reading history,
+             deleting messages, and deactivating accounts).
+Author: Henry Huang and Bridget Ma
+Date: 2024-2-6
+"""
 
-# import json
-# import selectors
-# import socket
-# import types
-# import pytest
+import json
+import os
+import selectors
+import socket
+import types
+import pytest
 
-# from server import server
-# from server import protocols
-# from server.protocols import custom_protocol, json_protocol
-# from server.utils import active_clients
-# from configs.config import UNSUPPORTED_VERSION, debug
+from server import server
+from server import protocols
+from server.protocols import custom_protocol, json_protocol
+from server.utils import active_clients
+from configs.config import UNSUPPORTED_VERSION, SUCCESS, USER_TAKEN, USER_DNE, WRONG_PASS, DB_ERROR, ID_DNE, debug
 
-# # ------------------------------------------------------------------
-# # DummySocket class to simulate a client socket.
-# # ------------------------------------------------------------------
-# class DummySocket:
-#     def __init__(self, recv_data=b""):
-#         # recv_data: bytes to be returned once on recv() call.
-#         self.recv_data = recv_data
-#         self.sent_data = b""
-#         self.closed = False
-
-#     def recv(self, bufsize):
-#         # Return the preset recv_data once, then empty bytes.
-#         if self.recv_data:
-#             data = self.recv_data
-#             self.recv_data = b""
-#             return data
-#         return b""
-
-#     def send(self, data):
-#         self.sent_data += data
-#         return len(data)
-
-#     def setblocking(self, flag):
-#         pass
-
-#     def close(self):
-#         self.closed = True
-
-# # ------------------------------------------------------------------
-# # Fixture to clear active_clients and reset the selector between tests.
-# # ------------------------------------------------------------------
-# @pytest.fixture(autouse=True)
-# def clear_active_clients_and_selector():
-#     active_clients.clear()
-#     # Reset the global selector used in the server.
-#     server.sel.close()
-#     server.sel = selectors.DefaultSelector()
-#     yield
-#     active_clients.clear()
-
-# # ------------------------------------------------------------------
-# # Test: Custom Protocol LOGIN via service_connection (EVENT_READ then EVENT_WRITE)
-# # ------------------------------------------------------------------
-# def test_service_connection_custom_login():
-#     # Prepare a custom protocol LOGIN message.
-#     # (Assumes "alice" is a registered account with password "hash1".)
-#     msg = "1.0 LOGIN alice hash1\n".encode("utf-8")
-#     dummy_sock = DummySocket(recv_data=msg)
-#     key = types.SimpleNamespace(
-#         fileobj=dummy_sock,
-#         data=types.SimpleNamespace(addr=("127.0.0.1", 12345), inb=b"", outb=b"", username=None)
-#     )
+# ------------------------------------------------------------------
+# Fixture to initialize the test database (accounts, messages, etc.)
+# ------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def setup_database_for_server_tests():
+    test_db = "test_chat.db"
+    server.database.DATABASE_NAME = test_db
+    if os.path.exists(test_db):
+        os.remove(test_db)
+    # Create necessary tables: accounts and messages.
+    server.database.initialize_db()
+    # Pre-populate the accounts table.
+    accounts = [
+        ("alice", "hash1"),
+        ("bob", "hash2"),
+        ("charlie", "hash3"),
+        ("david", "hash4")
+    ]
+    for username, pwd in accounts:
+        server.database.register_account(username, pwd)
     
-#     # Process the incoming message.
-#     server.service_connection(key, selectors.EVENT_READ)
-    
-#     # After processing, the custom protocol handler should have set the username.
-#     assert key.data.username == "alice", "Username should be set to 'alice' after LOGIN."
-#     # The socket should be registered in active_clients.
-#     assert "alice" in active_clients and active_clients["alice"] == dummy_sock
-    
-#     # A response should be queued in outb.
-#     assert key.data.outb != b"", "A response should be placed in outb."
-    
-#     # Now simulate a write event: send the queued data.
-#     server.service_connection(key, selectors.EVENT_WRITE)
-#     # After writing, outb should be empty.
-#     assert key.data.outb == b"", "After sending, outb should be empty."
-#     # And the dummy socket should have recorded the sent data.
-#     assert dummy_sock.sent_data != b"", "Data should have been sent via the dummy socket."
+    yield  # run tests
 
-# # ------------------------------------------------------------------
-# # Test: JSON Protocol LOGIN via service_connection.
-# # ------------------------------------------------------------------
-# def test_service_connection_json_login():
-#     # Prepare a JSON protocol LOGIN message.
-#     login_data = {"opcode": "LOGIN", "data": ["alice", "hash1"]}
-#     msg = f"2.0 {json.dumps(login_data)}\n".encode("utf-8")
-#     dummy_sock = DummySocket(recv_data=msg)
-#     key = types.SimpleNamespace(
-#         fileobj=dummy_sock,
-#         data=types.SimpleNamespace(addr=("127.0.0.1", 23456), inb=b"", outb=b"", username=None)
-#     )
-    
-#     server.service_connection(key, selectors.EVENT_READ)
-    
-#     assert key.data.username == "alice", "Username should be set to 'alice' for JSON LOGIN."
-#     assert "alice" in active_clients and active_clients["alice"] == dummy_sock
-#     assert key.data.outb != b"", "A JSON response should be queued in outb."
-    
-#     # Simulate writing the response.
-#     server.service_connection(key, selectors.EVENT_WRITE)
-#     assert key.data.outb == b"", "After write, outb should be empty."
-#     assert dummy_sock.sent_data != b"", "Dummy socket should have recorded sent data."
+    if os.path.exists(test_db):
+        os.remove(test_db)
 
-# # ------------------------------------------------------------------
-# # Test: Unsupported protocol version should return an error message.
-# # ------------------------------------------------------------------
-# def test_service_connection_unsupported_protocol():
-#     # A message with an unsupported protocol version (e.g., "3.0 ...").
-#     msg = "3.0 SOMETHING\n".encode("utf-8")
-#     dummy_sock = DummySocket(recv_data=msg)
-#     key = types.SimpleNamespace(
-#         fileobj=dummy_sock,
-#         data=types.SimpleNamespace(addr=("127.0.0.1", 34567), inb=b"", outb=b"", username=None)
-#     )
-    
-#     server.service_connection(key, selectors.EVENT_READ)
-    
-#     # The server should reply with an error using the JSON protocol wrapper.
-#     expected_error = json_protocol.wrap_message("ERROR", [str(UNSUPPORTED_VERSION)]).encode("utf-8") + b"\n"
-#     assert expected_error in key.data.outb, "Expected error message for unsupported protocol not found."
+# ------------------------------------------------------------------
+# DummySocket class to simulate a client socket.
+# ------------------------------------------------------------------
+class DummySocket:
+    def __init__(self, recv_data=b""):
+        # recv_data: bytes to be returned once on recv() call.
+        self.recv_data = recv_data
+        self.sent_data = b""
+        self.closed = False
+        
+    def fileno(self):
+        return self._fileno
 
-# # ------------------------------------------------------------------
-# # Test: Connection disconnection (simulate recv() returning empty bytes).
-# # ------------------------------------------------------------------
-# def test_service_connection_disconnect(monkeypatch):
-#     # Simulate a connected user ("alice") who then disconnects.
-#     dummy_sock = DummySocket(recv_data=b"")
-#     key = types.SimpleNamespace(
-#         fileobj=dummy_sock,
-#         data=types.SimpleNamespace(addr=("127.0.0.1", 45678), inb=b"", outb=b"", username="alice")
-#     )
-#     active_clients["alice"] = dummy_sock
+    def recv(self, bufsize):
+        if self.recv_data:
+            data = self.recv_data
+            self.recv_data = b""
+            return data
+        return b""
 
-#     # Monkeypatch the selector's unregister to capture its call.
-#     unregister_called = False
-#     def fake_unregister(sock):
-#         nonlocal unregister_called
-#         unregister_called = True
-#     monkeypatch.setattr(server.sel, "unregister", fake_unregister)
+    def send(self, data):
+        self.sent_data += data
+        return len(data)
     
-#     server.service_connection(key, selectors.EVENT_READ)
-    
-#     # Since recv() returned empty, the connection should be closed.
-#     assert dummy_sock.closed, "Socket should be closed on disconnect."
-#     # The user should be removed from active_clients.
-#     assert "alice" not in active_clients, "User 'alice' should be removed from active_clients on disconnect."
-#     # The selector's unregister should have been called.
-#     assert unregister_called, "Selector.unregister should have been called on disconnect."
+    def sendall(self, data):
+        return self.send(data)
 
-# # ------------------------------------------------------------------
-# # Test: Write event processing.
-# # ------------------------------------------------------------------
-# def test_service_connection_write_event():
-#     # Create a dummy key where data.outb is pre-populated with a test message.
-#     dummy_sock = DummySocket()
-#     test_message = b"Test message"
-#     key = types.SimpleNamespace(
-#         fileobj=dummy_sock,
-#         data=types.SimpleNamespace(addr=("127.0.0.1", 56789), inb=b"", outb=test_message, username="bob")
-#     )
+    def setblocking(self, flag):
+        pass
+
+    def close(self):
+        self.closed = True
+
+# ------------------------------------------------------------------
+# Fixture to clear active_clients and reset the selector between tests.
+# ------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def clear_active_clients_and_selector():
+    active_clients.clear()
+    server.sel.close()
+    server.sel = selectors.DefaultSelector()
+    yield
+    active_clients.clear()
+
+# =========================
+# Additional Server Tests
+# =========================
+
+# --- Tests for the CREATE command (account registration) ---
+
+def test_service_connection_create_success_custom():
+    # "newuser" is not pre-registered so registration should succeed.
+    msg = "1.0 CREATE newuser secret\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 23456), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    # Expected response is from handle_get_conversations: "1.0 USERS <page_code> newuser ..."
+    assert response.startswith("1.0 USERS"), "CREATE success response should start with '1.0 USERS'"
+    parts = response.split()
+    # The response format is: "1.0 USERS <page_code> newuser ..." 
+    assert parts[3] == "newuser", "Response should include 'newuser' as the registered account"
+
+def test_service_connection_create_failure_custom():
+    # Attempt to create an account using an existing username ("alice").
+    msg = "1.0 CREATE alice secret\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 22222), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    assert response.startswith("1.0 ERROR"), "CREATE failure should return an error"
+
+def test_service_connection_create_success_json():
+    # Test the JSON protocol CREATE command for a new account.
+    msg_data = {"opcode": "CREATE", "data": ["newjson", "secret"]}
+    msg = f"2.0 {json.dumps(msg_data)}\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 33333), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    version, opcode, data_resp = json_protocol.parse_message(response)
+    assert version == "2.0"
+    assert opcode == "USERS"
+    # Expect data format: [page_code, "newjson", ...]
+    assert data_resp[1] == "newjson", "Response should include 'newjson' as the registered account"
+
+def test_service_connection_create_failure_json():
+    # Try to register an account that already exists ("alice") via JSON.
+    msg_data = {"opcode": "CREATE", "data": ["alice", "secret"]}
+    msg = f"2.0 {json.dumps(msg_data)}\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 44444), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    version, opcode, data_resp = json_protocol.parse_message(response)
+    assert opcode == "ERROR", "JSON CREATE failure should return an ERROR response"
+
+# --- Tests for the SEND message command ---
+
+def test_service_connection_send_message_success_custom():
+    # Set up a dummy socket for the recipient "bob" to capture PUSH_MSG.
+    recipient_sock = DummySocket()
+    active_clients["bob"] = recipient_sock
+
+    # Construct a SEND command where "alice" sends "Hello Bob" to "bob".
+    msg = "1.0 SEND alice bob Hello Bob\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 55555), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    # Expected response: "1.0 ACK <msg_id>"
+    assert response.startswith("1.0 ACK"), "SEND command should return ACK"
+    # Verify that "bob" received a PUSH_MSG.
+    assert b"PUSH_MSG" in recipient_sock.sent_data, "Recipient 'bob' should receive a PUSH_MSG"
+
+def test_service_connection_send_message_success_json():
+    recipient_sock = DummySocket()
+    active_clients["bob"] = recipient_sock
+
+    msg_data = {"opcode": "SEND", "data": ["alice", "bob", "Hello", "JSON"]}
+    msg = f"2.0 {json.dumps(msg_data)}\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 66666), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    version, opcode, data_resp = json_protocol.parse_message(response)
+    assert opcode == "ACK", "JSON SEND command should return ACK"
+    # Check that "bob" received a PUSH_MSG.
+    assert b"PUSH_MSG" in recipient_sock.sent_data, "Recipient 'bob' should receive a PUSH_MSG in JSON send"
+
+# --- Tests for the READ chat history command ---
+
+def test_service_connection_read_chat_history_custom():
+    # Pre-store a message from "bob" to "alice".
+    server.database.store_message("bob", "alice", "Chat message")
+    # Construct a READ command: "1.0 READ alice bob -1 20\n"
+    msg = "1.0 READ alice bob -1 20\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 77777), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    assert response.startswith("1.0 MSGS"), "READ command should return MSGS response"
+    assert "Chat message" in response, "Response should include the chat message text"
+
+def test_service_connection_read_chat_history_json():
+    # Pre-store a message from "bob" to "alice".
+    server.database.store_message("bob", "alice", "JSON chat message")
+    msg_data = {"opcode": "READ", "data": ["alice", "bob", "-1", "20"]}
+    msg = f"2.0 {json.dumps(msg_data)}\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 88888), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    version, opcode, data_resp = json_protocol.parse_message(response)
+    assert opcode == "MSGS", "JSON READ command should return MSGS response"
+    # Ensure the response data contains the chat message.
+    assert any("JSON chat message" in s for s in data_resp), "Response should include the chat message text"
+
+# --- Tests for the DEL_MSG (delete message) command ---
+
+def test_service_connection_delete_message_success_custom():
+    # Pre-store a message from "alice" to "bob".
+    msg_id = server.database.store_message("alice", "bob", "To be deleted")
+    msg = f"1.0 DEL_MSG {msg_id}\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 23456), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    assert response.startswith("1.0 DEL_MSG"), "DEL_MSG command should return DEL_MSG response"
+    assert str(msg_id) in response, "Response should include the message ID"
+
+def test_service_connection_delete_message_failure_custom():
+    # Attempt to delete a non-existent message (id 999999).
+    msg = "1.0 DEL_MSG 999999\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 23456), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    assert response.startswith("1.0 ERROR"), "DEL_MSG failure should return an ERROR response"
+
+# --- Tests for the DEL_ACC (deactivate account) command ---
+
+def test_service_connection_deactivate_account_success_custom(monkeypatch):
+    # Simulate that "alice" is online.
+    dummy_sock = DummySocket()
+    active_clients["alice"] = dummy_sock
     
-#     server.service_connection(key, selectors.EVENT_WRITE)
+    # Monkeypatch sel.unregister so that it does nothing (avoiding the lookup error).
+    monkeypatch.setattr(server.sel, "unregister", lambda sock: None)
     
-#     # The dummy socket should have sent the test message.
-#     assert test_message in dummy_sock.sent_data, "Dummy socket should have sent the test message."
-#     # After sending, outb should be empty.
-#     assert key.data.outb == b"", "After write event, outb should be empty."
+    msg = "1.0 DEL_ACC alice\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 23456), inb=b"", outb=b"", username="alice")
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    assert response.startswith("1.0 DEL_ACC"), "DEL_ACC command should return DEL_ACC response"
+    assert "alice" not in active_clients, "'alice' should be removed from active_clients after deletion"
+
+def test_service_connection_deactivate_account_failure_custom():
+    # Attempt to deactivate a non-existent account ("nonuser").
+    msg = "1.0 DEL_ACC nonuser\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 23456), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    assert response.startswith("1.0 ERROR"), "DEL_ACC for non-existent account should return an ERROR response"
