@@ -227,6 +227,7 @@ def handle_push_user(data, Client):
     """
     new_user = data[0]
     Client.list_convos_page.convo_order.append(new_user)
+    Client.list_convos_page.num_unreads[new_user] = 0
     Client.list_convos_page.displayConvo(new_user)
 
 def handle_delete_acc(Client):
