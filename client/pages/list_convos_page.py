@@ -275,7 +275,7 @@ class ListConvosPage(QWidget):
         """
         self.Client.cur_convo = user
         num_msgs = self.delivered_spinbox.value()
-        request = create_chat_history_request(self.Client.username, user, num_msgs)
+        request = create_chat_history_request(self.Client.username, user, num_msgs=num_msgs)
         self.Client.send_request(request)
 
     def connectClient(self):

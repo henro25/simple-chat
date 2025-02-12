@@ -148,12 +148,7 @@ def create_delete_message_request(msg_id):
 # --- Handler functions (for processing incoming messages) ---
 
 def handle_users(data, Client):
-    """
-    Handles a list of users sent from the server.
-    
-    Expected data format:
-      [page_code, client_username, user1, unread1, user2, unread2, ...]
-    """
+    """Handles a list of users sent from server."""
     page_code = int(data[0])
     username = data[1]
     convo_list = deserialize_chat_conversations(data[2:])
@@ -163,12 +158,7 @@ def handle_users(data, Client):
         Client.login_page.loginSuccessful.emit(username, convo_list)
 
 def handle_incoming_message(data, Client):
-    """
-    Handles an incoming pushed message.
-    
-    Expected data format:
-      [sender, msg_id, message]
-    """
+    """Handles an incoming message pushed from the server."""
     sender = data[0]
     msg_id = int(data[1])
     message = " ".join(data[2:])
@@ -177,7 +167,7 @@ def handle_incoming_message(data, Client):
     if Client.cur_convo == sender:
         Client.messaging_page.displayIncomingMessage(sender, msg_id, message)
         # Send message delivered acknowledgement back to server
-        ack = f"1.0 REC_MSG {msg_id}\n"
+        ack = wrap_message("REC_MSG", [msg_id])
         Client.send_request(ack)
     # Update number of unreads displayed on list convos page
     else:
@@ -190,12 +180,7 @@ def handle_incoming_message(data, Client):
         Client.list_convos_page.refresh(0)
 
 def handle_chat_history(data, Client):
-    """
-    Handles chat history sent from the server.
-    
-    Expected data format:
-      [page_code, is_client, num_msgs, msg_id, num_words, msg..., ...]
-    """
+    """Handles chat history sent from server."""
     page_code = int(data[0])
     num_msgs_read, chat_history = deserialize_chat_history(data[1:])
     updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_msgs_read)
@@ -214,10 +199,7 @@ def handle_ack(data, Client):
     Expected data format:
       [msg_id]
     """
-    try:
-        msg_id = int(data[0])
-    except Exception:
-        msg_id = -1
+    msg_id = int(data[0])
     Client.messaging_page.displaySentMessage(msg_id)
 
 def handle_delete(data, Client):
