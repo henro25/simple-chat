@@ -6,12 +6,14 @@ Date: 2024-02-06
 """
 
 import sys
+import fnmatch
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QScrollArea, QHBoxLayout, QMessageBox
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
+
 from client.protocols.protocol_interface import *
 from configs.config import *
 
@@ -163,7 +165,7 @@ class ListConvosPage(QWidget):
     
     def filterConversations(self, text):
         """
-        Filters the conversation list based on the search bar input.
+        Filters the conversation list based on the search bar input using wildcard patterns.
         
         :param text: The current text in the search bar.
         """
@@ -171,11 +173,13 @@ class ListConvosPage(QWidget):
         if not search_text:
             self.filtered_convo_order = self.convo_order[:]
         else:
+            # Use fnmatch to match wildcard patterns.
             self.filtered_convo_order = [
                 convo for convo in self.convo_order
-                if search_text in convo.lower()
+                if fnmatch.fnmatch(convo.lower(), search_text)
             ]
         self.populateConversations()
+
     
     def setUsername(self, username):
         """
