@@ -56,6 +56,8 @@ def handle_login(args):
     """
     username, password = args[0], args[1]
     success, errno = database.verify_login(username, password)
+    if username in active_clients:
+        return f"1.0 ERROR {USER_LOGGED_ON}"
     if success:
         return handle_get_conversations(username, LGN_PG)
     else:
@@ -118,7 +120,6 @@ def handle_get_chat_history(args):
     
     # Update the number of unread messages for the recipient
     cur_num_unread = database.get_num_unread(client)
-    database.update_num_unread(client, user2, -min(cur_num_unread, num_messages_from_sender_read))
     debug(f"{client} read {min(cur_num_unread, num_messages_from_sender_read)} unread messages from {user2}")
     
     return response
@@ -151,9 +152,6 @@ def handle_send_message(args):
             recipient_sock.sendall(push_message.encode('utf-8'))
         except Exception as e:
             print(f"Failed to push message to {recipient}: {e}")
-    
-    # Update the number of unread messages for the recipient
-    database.update_num_unread(recipient, sender, 1)
 
     return f"1.0 ACK {msg_id}"
 
@@ -167,9 +165,9 @@ def handle_delete_messages(args):
         `1.0 DEL_MSG [msg ID]`
     """
     id = int(args[0])
-    recipient, errno = database.delete_message(id)
+    recipient, sender, unread, errno = database.delete_message(id)
     if recipient:
-        response = f"1.0 DEL_MSG {id}"
+        response = f"1.0 DEL_MSG {id} {sender} {unread}"
         if recipient in active_clients:
             print(recipient)
             recipient_sock = active_clients[recipient]
@@ -198,6 +196,17 @@ def handle_delete_account(args):
         return '1.0 DEL_ACC'
     else:
         return f"1.0 ERROR {errno}"
+    
+def handle_received_message(args):
+    """
+    Handle a client's acknowledgement of receiving another user's message
+
+    Parameters: [msg_id]
+
+    Returns no response or "1.0 ERROR {errno}" if encounter error
+    """
+    msg_id = int(args[0])
+    database.mark_message_as_read(msg_id)
 
 def process_message(message):
     """
@@ -220,5 +229,7 @@ def process_message(message):
         return handle_delete_messages(args)
     elif command == "DEL_ACC":
         return handle_delete_account(args)
+    elif command == "REC_MSG":
+        return handle_received_message(args)
     else:
         return f"1.0 ERROR {UNKNOWN_COMMAND}"

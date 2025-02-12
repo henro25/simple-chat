@@ -4,4 +4,3 @@ Description: Helper functions for the client, which might include things like in
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-7
 """
-active_users = {}

@@ -29,8 +29,9 @@ class ListConvosPage(QWidget):
         """
         super(ListConvosPage, self).__init__(parent)
         self.Client = Client
-        self.chat_conversations = []  # List of tuples (user, num_unreads)
-        self.filtered_conversations = []  # Copy used for filtering
+        self.convo_order = []  # Order to display conversation
+        self.filtered_convo_order = []  # Copy used for filtering
+        self.num_unreads = {} # Maps user to number of unreads from that user
         self.initUI()
     
     def initUI(self):
@@ -109,8 +110,15 @@ class ListConvosPage(QWidget):
     
     def updateConversations(self, new_chat_conversations):
         """Update the conversation list and refresh the UI."""
-        self.chat_conversations = new_chat_conversations
-        self.filtered_conversations = self.chat_conversations[:]  # Update filtered list as well
+        # reset all the data stored
+        self.convo_order = []
+        self.filtered_convo_order = []
+        self.num_unreads = {}
+        for user, num_unreads in new_chat_conversations:
+            self.convo_order.append(user)
+            self.num_unreads[user] = num_unreads
+
+        self.filtered_convo_order = self.convo_order[:]  # Update filtered list as well
         self.refresh()
     
     def refresh(self):
@@ -120,19 +128,18 @@ class ListConvosPage(QWidget):
     
     def updateUnreadCount(self):
         """Updates the label showing the total number of unread messages."""
-        total_unreads = sum(unreads for _, unreads in self.chat_conversations)
+        total_unreads = sum(self.num_unreads[user] for user in self.convo_order)
         self.unread_label.setText(f"{total_unreads} unread message{'s' if total_unreads != 1 else ''}")
     
-    def updateAfterRead(self, num_msgs_read):
+    def updateAfterRead(self, new_unread):
         # update num_unreads and reorder convos so that current convo is at top of convo list
         debug(f"Curr convo: {self.Client.cur_convo}")
-        for i in range(len(self.chat_conversations)):
-            if self.chat_conversations[i][0] == self.Client.cur_convo:
-                updated_num_unreads = max(self.chat_conversations[i][1] - num_msgs_read, 0)
-                debug(f"updated num unreads for {self.Client.cur_convo} to {updated_num_unreads}")
-                del self.chat_conversations[i]
-                self.chat_conversations.insert(0, (self.Client.cur_convo, updated_num_unreads))
-                break
+        user = self.Client.cur_convo
+        ind = self.convo_order.index(user)
+        debug(f"updated num unreads for {user} to {new_unread}")
+        self.num_unreads[user] = new_unread
+        del self.convo_order[ind]
+        self.convo_order.insert(0, user)
     
     def populateConversations(self, filtered=1):
         """
@@ -146,9 +153,9 @@ class ListConvosPage(QWidget):
                 child.widget().deleteLater()
         
         # Add a button for each conversation
-        cur_convo = self.filtered_conversations if filtered else self.chat_conversations
-        for user, num_unreads in cur_convo:
-            self.displayConvo(user, num_unreads)
+        cur_convo = self.filtered_convo_order if filtered else self.convo_order
+        for user in cur_convo:
+            self.displayConvo(user, self.num_unreads[user])
         
         # Add a stretch to push the buttons to the top of the scroll area
         self.convo_layout.addStretch(1)
@@ -161,11 +168,11 @@ class ListConvosPage(QWidget):
         """
         search_text = text.strip().lower()
         if not search_text:
-            self.filtered_conversations = self.chat_conversations[:]
+            self.filtered_convo_order = self.convo_order[:]
         else:
-            self.filtered_conversations = [
-                convo for convo in self.chat_conversations
-                if search_text in convo[0].lower()
+            self.filtered_convo_order = [
+                convo for convo in self.convo_order
+                if search_text in convo.lower()
             ]
         self.populateConversations()
     

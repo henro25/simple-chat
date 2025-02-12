@@ -40,8 +40,17 @@ class Client:
         """Handles both incoming and outgoing communication with the server."""
         if mask & selectors.EVENT_READ:
             self.receive_message()
-        # if mask & selectors.EVENT_WRITE:
-        #     self.process_outgoing_requests()
+        if mask & selectors.EVENT_WRITE:
+            self.process_outgoing_requests()
+    
+    def process_outgoing_requests(self):
+        if self.outgoing_requests:
+            request = self.outgoing_requests.pop(0)
+            try:
+                self.sock.sendall(request.encode('utf-8'))
+                debug(f"Client: sending request: {request}")
+            except Exception as e:
+                print(f"Error sending request: {e}")
     
     def receive_message(self):
         """Handles incoming messages from the server."""
@@ -62,11 +71,7 @@ class Client:
         Instead of immediately waiting for a response, we store outgoing data and
         let the selector notify us when we can send it.
         """
-        debug(f"Client: sending request: {request}")
-        try:
-            self.sock.sendall(request.encode('utf-8'))
-        except Exception as e:
-            print(f"Error sending request: {e}")
+        self.outgoing_requests.append(request)
 
     def run(self):
         """Main event loop to listen for messages and handle requests."""

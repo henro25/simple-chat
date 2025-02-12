@@ -80,10 +80,11 @@ class ChatApp(QMainWindow):
             )
         )
         self.listConvosPage.conversationSelected.connect(
-            lambda chat_history, num_msgs_read: (
+            lambda chat_history, new_unread: (
                 self.messagingPage.populateChatHistory(chat_history),
+                self.messagingPage.updateUnreadCount(new_unread),
                 self.stack.setCurrentWidget(self.messagingPage),
-                self.listConvosPage.updateAfterRead(num_msgs_read)
+                self.listConvosPage.updateAfterRead(new_unread)
             )
         )
         self.messagingPage.backClicked.connect(
@@ -122,5 +123,5 @@ if __name__ == '__main__':
     window.show()
     timer = QTimer()
     timer.timeout.connect(window.Client.run)
-    timer.start(100)
+    timer.start(10)
     sys.exit(app.exec_())

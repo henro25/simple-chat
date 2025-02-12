@@ -37,17 +37,6 @@ def initialize_db():
         )
     """)
     
-    # Create the num_unread_msgs table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS num_unread_msgs (
-            recipient TEXT NOT NULL,
-            sender TEXT NOT NULL,
-            last_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            unread_count INTEGER DEFAULT 0,
-            PRIMARY KEY (recipient, sender)
-        )
-    """)
-    
     # Create the messages table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS messages (
@@ -55,7 +44,8 @@ def initialize_db():
             sender TEXT NOT NULL,
             recipient TEXT NOT NULL,
             message TEXT NOT NULL,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            unread INTEGER DEFAULT 1
         )
     """)
 
@@ -180,30 +170,34 @@ def get_conversations(recipient):
     """
     Retrieve a list of conversations for the given recipient.
     The result is a list of tuples in the form: (sender, unread_count).
-    
+
     The ordering is as follows:
-      1. Conversations with unread messages (queried from num_unread_msgs) sorted by last_timestamp (most recent first).
-      2. The rest of the users (from accounts) that are not in the unread list, with unread_count set to 0, sorted alphabetically.
-    
+      1. Conversations with unread messages (sorted by last message timestamp, most recent first).
+      2. Read conversations (sorted alphabetically by sender).
+      3. Other registered accounts that haven't sent messages (sorted alphabetically).
+
     Parameters:
       recipient (str): The username of the recipient requesting conversations.
-    
+
     Returns:
       list: A list of tuples (sender, unread_count).
     """
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    # Query conversations with unread messages from num_unread_msgs
+
+    # Fetch unread conversations (sorted by last message timestamp)
     cur.execute("""
-        SELECT sender, unread_count 
-        FROM num_unread_msgs 
-        WHERE recipient = ? 
-        ORDER BY last_timestamp DESC
+        SELECT sender, COUNT(CASE WHEN unread = 1 THEN 1 END) AS unread_count,
+               MAX(timestamp) AS last_msg_time
+        FROM messages
+        WHERE recipient = ?
+        GROUP BY sender
+        HAVING unread_count > 0
+        ORDER BY last_msg_time DESC
     """, (recipient,))
+
     unread_rows = cur.fetchall()
     unread_senders = {row["sender"] for row in unread_rows}
-    
     # Query all other accounts (excluding the recipient and any senders already in unread_rows)
     if unread_senders:
         placeholders = ','.join('?' for _ in unread_senders)
@@ -224,10 +218,8 @@ def get_conversations(recipient):
         
     cur.execute(query, params)
     other_rows = cur.fetchall()
-    
     conn.close()
-    
-    # Combine results: unread conversations first, then other users with 0 unread messages
+
     conversations = [(row["sender"], row["unread_count"]) for row in unread_rows]
     conversations.extend([(row["username"], 0) for row in other_rows])
     
@@ -248,8 +240,8 @@ def get_num_unread(user):
     
     # Sum all unread counts for the given user
     cur.execute("""
-        SELECT SUM(unread_count) AS total_unread
-        FROM num_unread_msgs
+        SELECT SUM(unread) AS total_unread
+        FROM messages
         WHERE recipient = ?
     """, (user,))
     row = cur.fetchone()
@@ -259,42 +251,32 @@ def get_num_unread(user):
     return row["total_unread"] if row["total_unread"] is not None else 0
 
 
-def update_num_unread(recipient, sender, num_unread):
+def mark_message_as_read(msg_id):
     """
-    Update the num_unread_msgs table for a new message from sender to recipient.
-    If an entry exists, update the unread_count and update the timestamp.
-    Otherwise, create a new entry with unread_count set to num_unread.
+    Update the messages table for a message to be marked as read.
     
     Parameters:
-      recipient (str): The recipient of the message.
-      sender (str): The sender of the message.
-      num_unread (int): The number of unread messages.
+      msg_id (int): The id of message.
     """
     conn = get_db_connection()
     cur = conn.cursor()
     
     # Check if an entry exists for this conversation
     cur.execute("""
-        SELECT unread_count FROM num_unread_msgs
-        WHERE recipient = ? AND sender = ?
-    """, (recipient, sender))
+        SELECT recipient FROM messages
+        WHERE id = ?
+    """, (msg_id,))
     row = cur.fetchone()
-    
     if row:
-        new_count = row["unread_count"] + num_unread
         cur.execute("""
-            UPDATE num_unread_msgs
-            SET unread_count = ?, last_timestamp = CURRENT_TIMESTAMP
-            WHERE recipient = ? AND sender = ?
-        """, (new_count, recipient, sender))
-    else:
-        cur.execute("""
-            INSERT INTO num_unread_msgs (recipient, sender, unread_count)
-            VALUES (?, ?, ?)
-        """, (recipient, sender, num_unread))
-    
+            UPDATE messages
+            SET unread = ?
+            WHERE id = ?
+        """, (0, msg_id))
+            
     conn.commit()
     conn.close()
+
 
 # ----------------------------
 # Query and Update Messages
@@ -360,6 +342,18 @@ def get_recent_messages(user1, user2, oldest_msg_id=-1, limit=20):
         """, (user1, user2, user2, user1, oldest_msg_id, limit))
     
     messages = cur.fetchall()
+    # Extract message IDs that need to be marked as read
+    message_ids = [row["id"] for row in messages if row["recipient"] == user1]  # Only mark messages received by user1
+
+    if message_ids:
+        # Update unread status for fetched messages
+        cur.execute(f"""
+            UPDATE messages 
+            SET unread = 0 
+            WHERE id IN ({','.join(['?']*len(message_ids))})
+        """, message_ids)
+
+    conn.commit()
     conn.close()
     
     # Convert SQLite row objects to a list of dictionaries
@@ -376,32 +370,32 @@ def delete_message(message_id):
         message_id (int): The ID of the message to be deleted.
 
     Returns:
-        (str, int): recipient of message, SUCCESS if deletion was successful, (None, ER_NO) otherwise.
+        (str, str, int, int): recipient, sender, and read status of message, error code at the end SUCCESS if deletion was successful, (None, ER_NO) otherwise.
     """
     conn = get_db_connection()
     cur = conn.cursor()
     
     # Get message to verify existence
     cur.execute(f"""
-        SELECT id, sender, recipient FROM messages WHERE id = ?""", (message_id,))
+        SELECT id, sender, recipient, unread FROM messages WHERE id = ?""", (message_id,))
 
-    message = cur.fetchall()
+    message = cur.fetchone()
 
     if not message:
         conn.close()
-        return None, ID_DNE  # ID DNE
+        return None, None, None, ID_DNE  # ID DNE
 
     # Delete the message
     try:
         cur.execute("""DELETE FROM messages WHERE id = ?""", (message_id,))
     except Exception as e:
         conn.close()
-        return None, DB_ERROR
+        return None, None, None, DB_ERROR
 
     conn.commit()
     conn.close()
     
-    return message[0]["recipient"], SUCCESS  # Deletion successful
+    return message["recipient"], message["sender"], message["unread"], SUCCESS  # Deletion successful
     
 # ----------------------------
 # Additional Utility Functions

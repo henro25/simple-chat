@@ -286,9 +286,10 @@ class MessagingPage(QWidget):
         self.Client.cur_convo = None # reset the current conversation for client
         self.backClicked.emit()
 
-    def updateUnreadCount(self, count):
+    def updateUnreadCount(self, new_count):
         """Update the unread count label in the header."""
-        self.unread_label.setText(f"{count} unread")
+        self.num_unread = new_count
+        self.unread_label.setText(f"{self.num_unread} unread")
 
     def displayIncomingMessage(self, sender, msg_id, message):
         """Displays a new incoming message in the chat box and scrolls to bottom."""

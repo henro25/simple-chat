@@ -25,6 +25,7 @@ DB_ERROR    = 4 # when server experiences a database error
 UNSUPPORTED_VERSION = 5 # when client sends a message with an unsupported version
 UNKNOWN_COMMAND = 6 # when client sends a message with an unknown command
 ID_DNE = 7 # when client tries to delete an entry that does not exist in db
+USER_LOGGED_ON = 8 # when client tries to log into an active account
 
 ERROR_MSGS = {
     1: "Username already exists.",
@@ -33,7 +34,8 @@ ERROR_MSGS = {
     4: "Database error.",
     5: "Unsupported protocol version.",
     6: "Unknown wire command reveived.",
-    7: "Message does not exist."
+    7: "Message does not exist.",
+    8: "User already logged on"
 }
 
 DEBUG = True

@@ -237,8 +237,8 @@ Develop a messaging system using a client-server architecture with two different
   - **Example:** `1.0 PUSH_MSG henro 111 hello bridget`
   
 - **Real-Time Delete Message:**
-  - **Format:** `1.0 DEL_MSG [msg IDs]`
-  - **Example:** `1.0 DEL_MSG 2241 2622`
+  - **Format:** `1.0 DEL_MSG [sender of message] [msg ID] [read status 1 if unread 0 otherwise]`
+  - **Example:** `1.0 DEL_MSG henro 2241 0`
 
 - **Real-Time Create Account:**
   - **Format:** `1.0 PUSH_USER [username]`
@@ -277,6 +277,10 @@ Develop a messaging system using a client-server architecture with two different
 - **Delete Account:**
   - **Format:** `1.0 DEL_ACC [username]`
   - **Example:** `1.0 DEL_ACC bridgetma04`
+
+- **Real-Time Delivered Message:**
+  - **Format:** `1.0 REC_MSG [msg_id]`
+  - **Example:** `1.0 REC_MSG 11`
 
 ---
 
@@ -517,11 +521,12 @@ Develop a messaging system using a client-server architecture with two different
   4. [] Support JSON
   5. [] Handle offline unreads
   6. [] Handle online unreads
-  4. [] Delete Account
+  7. [] Delete Account
      1. [DONE] Create button top right of list conversations page
      2. [DONE] Create protocol function for delete request
      3. [DONE] Send delete request then go back to main menu
-  5. [] Support JSON
+  8. [] Support JSON
+  9. [DONE] Change data structure in list_convos_page to support faster lookup for number of unreads
   **Server-side**:
   1. [DONE] Real time deletions to users who are online
      1. [DONE] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
@@ -535,6 +540,8 @@ Develop a messaging system using a client-server architecture with two different
   4. [] Support JSON
   **Changed Wire Protocol**:
   1. [DONE] Create real time create user push wire protocol
+  2. [DONE] Create real time message delivery user side acknowledgement wire protocol
+  3. [DONE] Modify message deletion to include sender name
 
 
 
