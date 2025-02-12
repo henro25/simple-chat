@@ -4,14 +4,6 @@ Description: Implements a JSON wire protocol logic on the client side. This ensu
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
-"""
-Module Name: json_protocol.py
-Description: Implements a JSON wire protocol for the client side. All messages are constructed,
-             parsed, and validated as JSON objects. This protocol uses version "2.0" and is
-             designed to work with the server’s JSON protocol.
-Author: Henry Huang and Bridget Ma
-Date: 2024-2-7
-"""
 
 import json
 from configs.config import *

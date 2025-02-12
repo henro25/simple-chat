@@ -9,6 +9,7 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
+import sys
 import socket
 import selectors
 
@@ -76,6 +77,7 @@ class Client:
             pass
         except Exception as e:
             print(f"Error receiving message: {e}")
+            sys.exit(1)
 
     def send_request(self, request):
         """
@@ -102,6 +104,8 @@ class Client:
         except KeyboardInterrupt:
             self.close()
             print("Client shutting down.")
+        except Exception as e:
+            print(f"Error in client run loop: {e}")
 
     def reset(self):
         """Resets client information"""
