@@ -6,12 +6,6 @@ Date: 2024-2-7
 """
 
 from configs.config import *
-from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel,
-    QScrollArea, QSizePolicy, QMessageBox, QApplication
-)
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, pyqtSignal
 
 def parse_message(message):
     """
@@ -138,6 +132,8 @@ def handle_incoming_message(args, Client):
     sender = args[0]
     msg_id = int(args[1])
     message = " ".join(args[2:])
+    
+    debug("HALLO")
 
     # Notify the UI to update the chat if in conversation with sender
     if Client.cur_convo == sender:
@@ -194,6 +190,7 @@ def handle_delete(args, Client):
 def handle_push_user(args, Client):
     new_user = args[0]
     Client.list_convos_page.convo_order.append(new_user)
+    Client.list_convos_page.num_unreads[new_user] = 0
     Client.list_convos_page.displayConvo(new_user)
 
 def handle_delete_acc(Client):

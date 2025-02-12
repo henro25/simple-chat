@@ -119,14 +119,17 @@ def handle_get_chat_history(data):
         else:
             num_messages_from_sender_read += 1
         num_messages += 1
-        msg_id = message["id"]
         message_text = message["message"]
+        msg_id = message["id"]
         num_words = message_text.count(" ") + 1
         formatted_messages.extend([str(msg_id), str(num_words), message_text])
     formatted_messages.insert(0, str(num_messages))
     data_list.extend(formatted_messages)
+    
+    # Update the number of unread messages for the recipient
     cur_num_unread = database.get_num_unread(client)
     debug(f"{client} read {min(cur_num_unread, num_messages_from_sender_read)} unread messages from {user2}")
+    
     return wrap_message("MSGS", data_list)
 
 def handle_send_message(data):
@@ -139,9 +142,10 @@ def handle_send_message(data):
     msg_id = -1
     sender = data[0]
     recipient = data[1]
-    message = " ".join(data[2:])
+    # check if recipient has deactivated their account
     valid_recipient = database.verify_valid_recipient(recipient)
     if valid_recipient:
+        message = ' '.join(data[2:])
         msg_id = database.store_message(sender, recipient, message)
     
     # Send the message to the recipient if they are online
@@ -153,7 +157,7 @@ def handle_send_message(data):
             recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
         except Exception as e:
             print(f"Failed to push message to {recipient}: {e}")
-    database.update_num_unread(recipient, sender, 1)
+    
     return wrap_message("ACK", [str(msg_id)])
 
 def handle_delete_messages(data):
@@ -164,9 +168,9 @@ def handle_delete_messages(data):
     Returns a response with data: [msg_id] on success.
     """
     msg_id = int(data[0])
-    recipient, sender, unread, errno = database.delete_message(id)
+    recipient, sender, unread, errno = database.delete_message(msg_id)
     if recipient:
-        response = wrap_message("DEL_MSG", [str(msg_id), [sender] [unread]])
+        response = wrap_message("DEL_MSG", [str(msg_id), sender, unread])
         if recipient in active_clients:
             recipient_sock = active_clients[recipient]
             try:
