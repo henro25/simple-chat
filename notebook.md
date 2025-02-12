@@ -498,17 +498,18 @@ Develop a messaging system using a client-server architecture with two different
 
 ## Implementing Messaging Page UI
   **Client-side**:
-  1. [] Real time message deleting when other user deletes message while chatting with them
-     1. [] User listens for incoming deletion messages
-     2. [] Add functionality and logic to handle incoming deletions and only notify messaging page to display if it is correct sender
-     3. [] Messaging page update chat window when deletion arrives
-     4. [] Create deletion signal on messaging page for ease of deletion
-  2. [] Real time message delivery update unread count
+  1. [DONE] Real time message deleting when other user deletes message while chatting with them
+     1. [DONE] User listens for incoming deletion messages
+     2. [DONE] Add functionality and logic to handle incoming deletions and only notify messaging page to display if it is correct sender
+     3. [DONE] Messaging page update chat window when deletion arrives
+  2. [] Unread updates
+     1. [] Request chat history update unread count (unread count also updated on messaging page)
+     2. [] Real time message delivery update unread count
   3. [] Complete back button functionality
   4. [] Support JSON
   **Server-side**:
-  1. [] Real time deletions to users who are online
-     1. [] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
+  1. [DONE] Real time deletions to users who are online
+     1. [DONE] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
   2. [] Handle updating unread count after delivery
   2. [] Support JSON
   **Changed Wire Protocol**:

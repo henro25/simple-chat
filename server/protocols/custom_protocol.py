@@ -91,7 +91,7 @@ def handle_get_chat_history(args):
     formatted_messages = ""
     for message in history:
         if cur_sender != message["sender"]:
-            formatted_messages = f" {num_messages} {formatted_messages}"
+            formatted_messages = f" {num_messages}{formatted_messages}"
             response += formatted_messages
             num_messages = 0
             formatted_messages = ""
