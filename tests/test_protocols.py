@@ -2,7 +2,7 @@
 Module Name: test_protocols.py
 Description: Unit tests for the custom protocol and JSON protocol message parsing and handling functions.
 Author: Henry Huang and Bridget Ma
-Date: 2024-2-7 (extended 2025-02-12)
+Date: 2024-2-7
 """
 
 import os
