@@ -201,7 +201,7 @@ def handle_delete_acc(Client):
 
 def handle_error(args, Client):
     errno = int(args[0])
-    if errno == 1 or errno == 2 or errno == 3 or errno == 8:
+    if errno in (1, 2, 3, 8):
         Client.login_page.displayLoginErrors(errno)
 
 def process_message(message, Client):

@@ -80,7 +80,7 @@ def handle_get_chat_history(args):
     Handle a client's request for chat history ealier than the oldest_msg_id. When oldest_msg_id == -1, return 
     the most recent messages. 
 
-    Parameters: [client, user2, oldest_msg_id]
+    Parameters: [client, user2, oldest_msg_id, num_msgs]
 
     Returns a response in the format:
         `1.0 MSGS [1 if user who sent the ealiest message is same as the user receiving this history else 0] 

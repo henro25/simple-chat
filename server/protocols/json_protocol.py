@@ -87,7 +87,7 @@ def handle_get_conversations(recipient, page_code):
 def handle_get_chat_history(data):
     """
     Handle a client's request for chat history.
-    Expects data: [client, user2, oldest_msg_id].
+    Expects data: [client, user2, oldest_msg_id, num_msgs].
 
     Returns a response with data:
       [page_code, is_client, num_msgs, msg_id, num_words, msg, ...]
@@ -124,7 +124,6 @@ def handle_get_chat_history(data):
     formatted_messages.insert(0, str(num_messages))
     data_list.extend(formatted_messages)
     cur_num_unread = database.get_num_unread(client)
-    database.update_num_unread(client, user2, -min(cur_num_unread, num_messages_from_sender_read))
     debug(f"{client} read {min(cur_num_unread, num_messages_from_sender_read)} unread messages from {user2}")
     return wrap_message("MSGS", data_list)
 
