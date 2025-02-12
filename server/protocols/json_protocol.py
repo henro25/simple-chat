@@ -142,6 +142,7 @@ def handle_send_message(data):
     recipient = data[1]
     # check if recipient has deactivated their account
     valid_recipient = database.verify_valid_recipient(recipient)
+    message = ''
     if valid_recipient:
         message = ' '.join(data[2:])
         msg_id = database.store_message(sender, recipient, message)

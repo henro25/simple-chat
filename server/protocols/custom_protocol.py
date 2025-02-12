@@ -133,6 +133,7 @@ def handle_send_message(args):
         `1.0 ACK [msg ID]`
     """
     msg_id = -1
+    message = ''
     sender = args[0]
     recipient = args[1]
     # check if recipient has deactivated their account
