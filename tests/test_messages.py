@@ -19,15 +19,9 @@ os.chdir(server_dir)
 from server import database
 from configs.config import *
 
-# ----------------------------
-# Setup and Teardown
-# ----------------------------
-
+# Fixture to set up and tear down a temporary test database.
 @pytest.fixture(autouse=True)
 def setup_database():
-    """
-    Pytest fixture to set up and tear down a temporary test database.
-    """
     test_db = "test_chat.db"
     database.DATABASE_NAME = test_db  # Override the database name in the module
 
@@ -144,9 +138,12 @@ def test_delete_message():
     conn.close()
 
     # Delete the message
-    recp, _ = database.delete_message(msg_id)
+    recp, sndr, unread_status, error_code = database.delete_message(msg_id)
     assert recp, "Message should be successfully deleted."
     assert recp == recipient, "Should return correct recipient"
+    assert sndr == sender, "Should return correct sender"
+    assert unread_status == 1, "Should return correct unread status"
+    assert error_code == SUCCESS, "Should return correct message ID"
 
     # Ensure the message is removed
     conn = database.get_db_connection()
@@ -159,8 +156,10 @@ def test_delete_nonexistent_message():
     """
     Test deleting a message that doesn't exist.
     """
-    recipient, error_code = database.delete_message(99999)  # Nonexistent ID
+    recipient, sender, unread_status, error_code = database.delete_message(99999)
     assert not recipient, "Should return False when deleting a nonexistent message."
+    assert not sender, "Should return False when deleting a nonexistent message."
+    assert not unread_status, "Should return False when deleting a nonexistent message."
     assert error_code == ID_DNE, "Should return correct error code for nonexistent ID."
 
 def test_delete_multiple_messages():
