@@ -161,6 +161,8 @@ class MessagingPage(QWidget):
     
     def displaySentMessage(self, msg_id):
         if msg_id == -1:
+            # remove this stored message from queue
+            self.send_queue.pop(0)
             QMessageBox.critical(self, "Send Message Error", "The recipient of the message has deactivated their account.")
         else:
             self.chat_history.append(msg_id)
