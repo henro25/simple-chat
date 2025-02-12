@@ -12,6 +12,7 @@ A simple, client-server chat application that allows users to send and receive t
 Starting the server: in terminal and from the root directory, run `python -m server.server`
 
 Note: the console will return the server IP address and port number that clients can connect to. The server connects to the machine's IP address and a random open port number.
+- Specifically, the console will print: `Listening on ('<server_IP_address>', <port_num>)`
 
 Starting the client: 
 

@@ -554,5 +554,10 @@ Develop a messaging system using a client-server architecture with two different
   **Changed Wire Protocol**:
   1. [DONE] Modify chat history to include number of unread messages of recipient in the chat history
 
+## Finished adding testing and documentation!
+
+## We found that sending the custom protocol is quicker since we needed to send less information (no brackets or extra list delimeters), but the JSON protocol is easier to parse!
+
+---
 
 *This document is a living record. Future updates and refinements will be made as the project evolves.*
