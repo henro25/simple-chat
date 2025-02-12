@@ -12,13 +12,10 @@ from . import database  # database module for registration/login
 
 import server.protocols.custom_protocol as custom_protocol
 from configs.config import *
-from server.state import active_clients
+from server.utils import active_clients
 
 # Create a default selector
 sel = selectors.DefaultSelector()
-
-# # Create a dict to track active users
-# active_clients = {}
 
 def accept_wrapper(sock):
     """Accept new connections and register them."""

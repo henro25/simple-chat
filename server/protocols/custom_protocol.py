@@ -7,7 +7,7 @@ Date: 2024-2-7
 
 from server import database
 from configs.config import *
-from server.state import active_clients
+from server.utils import active_clients
 
 
 def parse_message(message):
@@ -37,6 +37,13 @@ def handle_create(args):
     username, password = args[0], args[1]
     success, errno = database.register_account(username, password)
     if success:
+        push_user = f'1.0 PUSH_USER {username}'
+        for user, sock in active_clients.items():
+            try:
+                debug(f"Server: pushing message: {push_user}")
+                sock.sendall(push_user.encode('utf-8'))
+            except Exception as e:
+                print(f"Failed to push message to {user}: {e}")
         return handle_get_conversations(username, REG_PG)
     else:
         return f"1.0 ERROR {errno}"

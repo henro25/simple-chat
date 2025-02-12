@@ -240,6 +240,10 @@ Develop a messaging system using a client-server architecture with two different
   - **Format:** `1.0 DEL_MSG [msg IDs]`
   - **Example:** `1.0 DEL_MSG 2241 2622`
 
+- **Real-Time Create Account:**
+  - **Format:** `1.0 PUSH_USER [username]`
+  - **Example:** `1.0 PUSH_USER henro`
+
 ### Client-to-Server Communication
 
 - **Create New Account:**

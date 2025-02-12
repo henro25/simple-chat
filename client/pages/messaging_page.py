@@ -262,7 +262,7 @@ class MessagingPage(QWidget):
             self.message_info[msg_id] = (sender, message)
 
         # Restore scroll position after inserting messages
-        QTimer.singleShot(50, lambda: self.restoreScrollPosition(scroll_bar, prev_scroll_value, prev_max_scroll))
+        QTimer.singleShot(1, lambda: self.restoreScrollPosition(scroll_bar, prev_scroll_value, prev_max_scroll))
 
     def restoreScrollPosition(self, scroll_bar, prev_scroll_value, prev_max_scroll):
         """

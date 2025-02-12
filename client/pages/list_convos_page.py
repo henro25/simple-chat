@@ -100,36 +100,8 @@ class ListConvosPage(QWidget):
                 child.widget().deleteLater()
         
         # Add a button for each conversation
-        for convo in self.filtered_conversations:
-            user, num_unreads = convo
-            if num_unreads > 0:
-                button_text = f"{user} ({num_unreads} unread)"
-            else:
-                button_text = user
-            button = QPushButton(button_text)
-            button.setFixedHeight(40)
-            button.setStyleSheet("""
-                QPushButton {
-                    text-align: left;
-                    padding-left: 10px;
-                    padding-right: 10px;    /* Ensure text doesn't run into the right edge */
-                    margin-right: 20px;     /* Reserve extra space so the button appears narrower */
-                    font-size: 14px;
-                    background-color: #bdc3c7;       
-                    border: 1px solid #95a5a6;       
-                    border-radius: 5px;
-                    color: #2C3E50;
-                }
-                QPushButton:hover {
-                    background-color: #95a5a6;
-                }
-                QPushButton:pressed {
-                    background-color: #7f8c8d;
-                }
-                """)
-            # Use a lambda with default argument to capture the current user
-            button.clicked.connect(lambda checked, user=user: self.onConversationSelected(user))
-            self.convo_layout.addWidget(button)
+        for user, num_unreads in self.filtered_conversations:
+            self.displayConvo(user, num_unreads)
         
         # Add a stretch to push the buttons to the top of the scroll area
         self.convo_layout.addStretch(1)
@@ -169,8 +141,46 @@ class ListConvosPage(QWidget):
         self.Client.send_request(request)
 
     def connectClient(self):
+        """
+        Called to connect current list convos page to client
+        """
         self.Client.list_convos_page = self
         
     def disconnectClient(self):
+        """
+        Called to disconnect current list convos page to client
+        """
         self.Client.list_convos_page = None
 
+    def displayConvo(self, user, num_unreads=0):
+        """
+        Called to display a newly created user in real time
+        """
+        if num_unreads > 0:
+            button_text = f"{user} ({num_unreads} unread)"
+        else:
+            button_text = user
+        button = QPushButton(button_text)
+        button.setFixedHeight(40)
+        button.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding-left: 10px;
+                padding-right: 10px;    /* Ensure text doesn't run into the right edge */
+                margin-right: 20px;     /* Reserve extra space so the button appears narrower */
+                font-size: 14px;
+                background-color: #bdc3c7;       
+                border: 1px solid #95a5a6;       
+                border-radius: 5px;
+                color: #2C3E50;
+            }
+            QPushButton:hover {
+                background-color: #95a5a6;
+            }
+            QPushButton:pressed {
+                background-color: #7f8c8d;
+            }
+            """)
+        # Use a lambda with default argument to capture the current user
+        button.clicked.connect(lambda checked, user=user: self.onConversationSelected(user))
+        self.convo_layout.addWidget(button)

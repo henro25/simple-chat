@@ -152,6 +152,11 @@ def handle_delete(args, Client):
     if msg_id in Client.messaging_page.message_info:
         Client.messaging_page.removeMessageDisplay(msg_id)
 
+def handle_push_user(args, Client):
+    new_user = args[0]
+    if Client.list_convos_page:
+        Client.list_convos_page.displayConvo(new_user)
+
 # def handle_error(page):
 
 def process_message(message, Client):
@@ -173,6 +178,8 @@ def process_message(message, Client):
         handle_delete(args, Client)
     elif command == "PUSH_MSG":
         handle_incoming_message(args, Client)
+    elif command == "PUSH_USER":
+        handle_push_user(args, Client)
     # elif command == "ERROR":
     #     handle_error()
     else:
