@@ -514,16 +514,16 @@ Develop a messaging system using a client-server architecture with two different
      1. [] Request chat history update unread count (unread count also updated on messaging page)
      2. [] Real time message delivery update unread count
   3. [] Complete back button functionality
-  4. [] Support JSON
-  5. [] Handle offline unreads
-  6. [] Handle online unreads
-  4. [] Delete Account
+  4. [] Handle offline unreads
+  5. [] Handle online unreads
+  6. [DONE] Delete Account
      1. [DONE] Create button top right of list conversations page
      2. [DONE] Create protocol function for delete request
      3. [DONE] Send delete request then go back to main menu
-  5. [DONE] Support JSON
+  7. [DONE] Support JSON
      1. [DONE] Allow the client to enter the perferred protocol version (1.0 for custom and 2.0 for JSON) in the command line
-  6. [DONE] Allow the client to enter the server host and port as arguments in the command line 
+  8. [DONE] Allow the client to enter the server host and port as arguments in the command line 
+  9. [DONE] Hashing password
   **Server-side**:
   1. [DONE] Real time deletions to users who are online
      1. [DONE] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)

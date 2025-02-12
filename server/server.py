@@ -111,6 +111,7 @@ def service_connection(key, mask):
         if data.outb:
             try:
                 sent = sock.send(data.outb)
+                debug(f"Sent {data.outb[:sent]} to {data.addr}")
                 data.outb = data.outb[sent:]
             except Exception as e:
                 print(f"Error writing to {data.addr}: {e}")

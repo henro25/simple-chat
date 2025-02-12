@@ -70,7 +70,8 @@ class ChatApp(QMainWindow):
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.listConvosPage.setUsername(username),
-                self.stack.setCurrentWidget(self.listConvosPage)
+                self.stack.setCurrentWidget(self.listConvosPage),
+                self.setWindowTitle(f"{username}'s Conversations")
             )
         )
         self.registerPage.registerSuccessful.connect(
@@ -78,7 +79,8 @@ class ChatApp(QMainWindow):
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.listConvosPage.setUsername(username),
-                self.stack.setCurrentWidget(self.listConvosPage)
+                self.stack.setCurrentWidget(self.listConvosPage),
+                self.setWindowTitle(f"{username}'s Conversations")
             )
         )
         self.listConvosPage.conversationSelected.connect(
@@ -97,7 +99,7 @@ class ChatApp(QMainWindow):
         self.listConvosPage.accountDeleted.connect(
             lambda: (
                 self.Client.reset(),
-                self.stack.setCurrentWidget(self.mainMenu)
+                self.stack.setCurrentWidget(self.mainMenu),
             )
         )
     

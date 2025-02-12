@@ -34,6 +34,7 @@ class Client:
         self.username = None        # Store username of client
         self.cur_convo = None       # Store username of other user if client on messaging page
         self.registered = 0         # Stores state of socket
+        self.inb = ""  # Buffer to hold incoming data
         try:
             self.sock.connect(self.server_address)
             debug(f"Client: connected to server at {self.server_address}")
@@ -51,26 +52,32 @@ class Client:
     def receive_message(self):
         """Handles incoming messages from the server."""
         try:
-            response_data = self.sock.recv(4096).decode('utf-8')
-            if response_data:
-                debug(f"Received server response: {response_data.strip()}")
-                # Check the protocol version and dispatch accordingly.
-                if response_data.startswith("1.0"):
-                    # Process with the custom protocol.
-                    custom_protocol.process_message(response_data, self)
-                elif response_data.startswith("2.0"):
-                    # Process with the JSON protocol.
-                    json_protocol.process_message(response_data, self)
-                else:
-                    # Unsupported version; generate an error response.
-                    error_response = json_protocol.wrap_message("ERROR", [str(UNSUPPORTED_VERSION)])
-                    debug(f"Unsupported protocol version received: {response_data.strip()}")
-                    # Optionally, you might want to display or handle the error locally.
+            new_data = self.sock.recv(4096)
+            if new_data:
+                # Append new data (decoded as utf-8) to the buffer.
+                self.inb += new_data.decode('utf-8')
+                # Process all complete messages (terminated by newline).
+                while "\n" in self.inb:
+                    # Split off one complete message and update the buffer with the remainder.
+                    message, self.inb = self.inb.split("\n", 1)
+                    if message:  # Only process if non-empty
+                        debug(f"Received server response: {message.strip()}")
+                        # Check the protocol version and dispatch accordingly.
+                        if message.startswith("1.0"):
+                            custom_protocol.process_message(message, self)
+                        elif message.startswith("2.0"):
+                            json_protocol.process_message(message, self)
+                        else:
+                            error_response = json_protocol.wrap_message("ERROR", [str(UNSUPPORTED_VERSION)])
+                            debug(f"Unsupported protocol version received: {message.strip()}")
+            else:
+                # Handle the case where recv() returns an empty byte string (connection closed).
+                pass
         except BlockingIOError:
             pass
         except Exception as e:
             print(f"Error receiving message: {e}")
-            
+
     def send_request(self, request):
         """
         Send a request to the server.
