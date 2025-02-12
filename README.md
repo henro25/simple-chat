@@ -11,12 +11,14 @@ A simple, client-server chat application that allows users to send and receive t
 
 Starting the server: in terminal and from the root directory, run `python -m server.server`
 
-Note: currently, if you want to run on your actual IP address, enter the command `ipconfig getifaddr en0` (for macOS) in terminal and find your IP address. Then, replace the SERVER_HOST in configs/config.py with this IP address, making sure it is still in single quotes!
+Note: the console will return the server IP address and port number that clients can connect to. The server connects to the machine's IP address and a random open port number.
 
 Starting the client: 
 
 1. In another terminal window and from the root directory, activate the environment again `source venv/bin/activate`
-2. Run from the root directory `python -m client.main`
+2. Run from the root directory `python -m client.main <protocol_version> <server_ip> <server_port>`
+   1. Usage: use 1.0 for custom protocol version and 2.0 for JSON protocol version
+   2. Example: `python -m client.main 1.0 1 127.0.0.1 65432`
 
 # Testing
 To run the unit tests, simply run: `pytest`

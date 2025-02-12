@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
-from client.protocols.custom_protocol import *
+from client.protocols.protocol_interface import *
 from configs.config import *
 
 class RegisterPage(QWidget):

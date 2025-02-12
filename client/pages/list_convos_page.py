@@ -8,11 +8,11 @@ Date: 2024-02-06
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QHBoxLayout
+    QScrollArea, QHBoxLayout, QMessageBox
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
-from client.protocols.custom_protocol import *
+from client.protocols.protocol_interface import *
 from configs.config import *
 
 class ListConvosPage(QWidget):
