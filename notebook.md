@@ -518,9 +518,9 @@ Develop a messaging system using a client-server architecture with two different
   5. [] Handle offline unreads
   6. [] Handle online unreads
   4. [] Delete Account
-     1. [] Create button top right of list conversations page
-     2. [] Create protol function for delete request
-     3. [] Send delete request then go back to main menu
+     1. [DONE] Create button top right of list conversations page
+     2. [DONE] Create protocol function for delete request
+     3. [DONE] Send delete request then go back to main menu
   5. [] Support JSON
   **Server-side**:
   1. [DONE] Real time deletions to users who are online
@@ -529,9 +529,9 @@ Develop a messaging system using a client-server architecture with two different
   3. [] Support JSON
   4. [] Handle offline unreads
   6. [] Handle online unreads
-  3. [] Delete Account
+  3. [DONE] Delete Account
      1. [DONE] Modify accounts db for to keep track of deactibation of account
-     2. [] Does not accept send message requests to deactivated username
+     2. [DONE] Does not accept send message requests to deactivated username
   4. [] Support JSON
   **Changed Wire Protocol**:
   1. [DONE] Create real time create user push wire protocol

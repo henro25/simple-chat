@@ -17,7 +17,7 @@ from configs.config import *
 
 class ListConvosPage(QWidget):
     # Signal emitted when a conversation is selected.
-    conversationSelected = pyqtSignal(list)
+    conversationSelected = pyqtSignal(list, int)
     accountDeleted = pyqtSignal()  # Signal to trigger main menu navigation
     
     def __init__(self, Client, parent=None):
@@ -107,19 +107,34 @@ class ListConvosPage(QWidget):
         self.populateConversations()
 
     
-    def updateConversations(self, new_conversations):
+    def updateConversations(self, new_chat_conversations):
         """Update the conversation list and refresh the UI."""
-        self.chat_conversations = new_conversations
-        self.filtered_conversations = new_conversations[:]  # Update filtered list as well
+        self.chat_conversations = new_chat_conversations
+        self.filtered_conversations = self.chat_conversations[:]  # Update filtered list as well
+        self.refresh()
+    
+    def refresh(self):
+        """refresh the UI"""
         self.updateUnreadCount()    # Update the unread messages label
-        self.populateConversations()  # Recreate the buttons
+        self.populateConversations(0)  # Recreate the buttons
     
     def updateUnreadCount(self):
         """Updates the label showing the total number of unread messages."""
         total_unreads = sum(unreads for _, unreads in self.chat_conversations)
         self.unread_label.setText(f"{total_unreads} unread message{'s' if total_unreads != 1 else ''}")
     
-    def populateConversations(self):
+    def updateAfterRead(self, num_msgs_read):
+        # update num_unreads and reorder convos so that current convo is at top of convo list
+        debug(f"Curr convo: {self.Client.cur_convo}")
+        for i in range(len(self.chat_conversations)):
+            if self.chat_conversations[i][0] == self.Client.cur_convo:
+                updated_num_unreads = max(self.chat_conversations[i][1] - num_msgs_read, 0)
+                debug(f"updated num unreads for {self.Client.cur_convo} to {updated_num_unreads}")
+                del self.chat_conversations[i]
+                self.chat_conversations.insert(0, (self.Client.cur_convo, updated_num_unreads))
+                break
+    
+    def populateConversations(self, filtered=1):
         """
         Clears the current conversation buttons and repopulates them based on the current
         filtered conversations.
@@ -131,7 +146,8 @@ class ListConvosPage(QWidget):
                 child.widget().deleteLater()
         
         # Add a button for each conversation
-        for user, num_unreads in self.filtered_conversations:
+        cur_convo = self.filtered_conversations if filtered else self.chat_conversations
+        for user, num_unreads in cur_convo:
             self.displayConvo(user, num_unreads)
         
         # Add a stretch to push the buttons to the top of the scroll area
@@ -214,12 +230,7 @@ class ListConvosPage(QWidget):
             """)
         # Use a lambda with default argument to capture the current user
         button.clicked.connect(lambda _, user=user: self.onConversationSelected(user))
-        # If there are no existing conversations, add at the top
-        if self.convo_layout.count() == 0:
-            self.convo_layout.addWidget(button)
-        else:
-            self.convo_layout.insertWidget(self.convo_layout.count() - 1, button)
-
+        self.convo_layout.addWidget(button)
 
     def confirmDeleteAccount(self):
         """Shows a confirmation dialog before deleting the account."""

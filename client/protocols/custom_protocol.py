@@ -82,7 +82,7 @@ def deserialize_chat_history(chat_history):
     into a list of tuples: [(username, msg ID, message), (username, msg ID, message), ...].
     """
     if not chat_history:
-        return []
+        return 0, []
     message_list = []
     is_client = int(chat_history[0])
     ind = 1
@@ -148,18 +148,18 @@ def handle_chat_history(args, Client):
     page_code = int(args[0])
     num_msgs_read, chat_history = deserialize_chat_history(args[1:])
     if page_code==CONVO_PG:
-        cur_conversations = Client.list_convos_page.chat_conversations
-        Client.list_convos_page.conversationSelected.emit(chat_history)
+        # cur_conversations = Client.list_convos_page.chat_conversations
+        Client.list_convos_page.conversationSelected.emit(chat_history, num_msgs_read)
         
-        # update num_unreads and reorder convos so that current convo is at top of convo list
-        debug(f"Curr convo: {Client.cur_convo}")
-        for i in range(len(cur_conversations)):
-            if cur_conversations[i][0] == Client.cur_convo:
-                updated_num_unreads = max(cur_conversations[i][1] - num_msgs_read, 0)
-                debug(f"updated num unreads for {Client.cur_convo} to {updated_num_unreads}")
-                del cur_conversations[i]
-                cur_conversations.insert(0, (Client.cur_convo, updated_num_unreads))
-                break
+        # # update num_unreads and reorder convos so that current convo is at top of convo list
+        # debug(f"Curr convo: {Client.cur_convo}")
+        # for i in range(len(cur_conversations)):
+        #     if cur_conversations[i][0] == Client.cur_convo:
+        #         updated_num_unreads = max(cur_conversations[i][1] - num_msgs_read, 0)
+        #         debug(f"updated num unreads for {Client.cur_convo} to {updated_num_unreads}")
+        #         del cur_conversations[i]
+        #         cur_conversations.insert(0, (Client.cur_convo, updated_num_unreads))
+        #         break
     else:
         Client.messaging_page.addChatHistory(chat_history)
 

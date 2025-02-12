@@ -51,6 +51,7 @@ class MessagingPage(QWidget):
         self.send_queue = [] # Queue to send message
         self.delete_queue = [] # Queue to delete messgae
         self.message_info = {} # Dict that maps message id to sender and text
+        self.num_unread = 0
         self.initUI()
 
     def initUI(self):

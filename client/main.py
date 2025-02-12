@@ -80,13 +80,15 @@ class ChatApp(QMainWindow):
             )
         )
         self.listConvosPage.conversationSelected.connect(
-            lambda chat_history: (
+            lambda chat_history, num_msgs_read: (
                 self.messagingPage.populateChatHistory(chat_history),
-                self.stack.setCurrentWidget(self.messagingPage)
+                self.stack.setCurrentWidget(self.messagingPage),
+                self.listConvosPage.updateAfterRead(num_msgs_read)
             )
         )
         self.messagingPage.backClicked.connect(
             lambda: (
+                self.listConvosPage.refresh(),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
