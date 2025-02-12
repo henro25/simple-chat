@@ -1,140 +1,179 @@
-# Overall Architecture Documentation
+# Simple Chat – Overall Architecture
 
-This document describes the architecture of our client–server chat application. It covers the main components on both the client and server sides, their interactions, and important design decisions. The application supports two wire protocols: a custom, string-based protocol (version 1.0) and a JSON-based protocol (version 2.0).
+Below is an overall architecture document of our client–server chat application. It covers the main components on both the client and server sides, their interactions, and important design decisions. The application supports two wire protocols: a custom, string-based protocol (version 1.0) and a JSON-based protocol (version 2.0).
 
 ---
 
-## 1. Client-Side Architecture
+## 1. High-Level Overview
 
-### Components
+The application follows a **classic client–server** model:
 
-- **UI Pages**  
-  The client’s graphical user interface is built using **PyQt5** and organized as several distinct pages:
-  - **Main Menu (main_menu.py):**  
-    The landing page that provides options for account creation and login.
-  - **Login Page (login_page.py):**  
-    Contains a login form for entering username and password.
-  - **Registration Page (register_page.py):**  
-    Provides a form for creating a new account.
-  - **Conversation List Page (list_convos_page.py):**  
-    Displays a list of chat conversations along with unread message counts. It allows filtering, sorting, and selection of a conversation.
-  - **Messaging Page (messaging_page.py):**  
-    The chat interface where messages are sent, received, and can be deleted. It includes a scrollable chat history area, message input, and controls for real-time updates.
+1. **Server**  
+   - Listens for incoming client connections using Python’s `selectors`.
+   - Handles authentication, message storage, retrieval, and account operations.
+   - Communicates with a SQLite database for persistence.
 
-- **Client Core (client.py)**  
-  This module handles the socket connection with the server. It manages asynchronous communication using non-blocking sockets and Python’s **selectors** module. The client class is responsible for:
-  - Establishing and maintaining the connection.
-  - Sending requests and receiving responses.
-  - Routing incoming messages to the appropriate UI pages.
+2. **Client**  
+   - A PyQt-based desktop GUI that allows users to:
+     - **Register** or **log in**.
+     - View conversations and unread counts.
+     - Send and receive messages in real time.
+     - Delete messages or their account.
+   - Exchanges data with the server over a TCP socket.
+   - Supports two wire protocols—**Custom** (1.0) or **JSON** (2.0)—based on user configuration.
 
-- **Protocol Interface (protocol_interface.py)**  
-  Acts as a dispatcher that selects the correct protocol module based on the current protocol version (configured in `configs/config.py`):
-  - **Custom Protocol (version 1.0):**  
+3. **Database (SQLite)**  
+   - Maintains tables for:
+     - **Accounts** (username, hashed password, and deactivation flag)  
+     - **Messages** (sender, recipient, message content, timestamps, read/unread status)  
+   - Provides queries to fetch or update user data, chat histories, unread counts, etc.
+
+---
+
+## 2. Major Components
+
+### 2.1 Client-Side Components
+
+1. **Main GUI (PyQt)**  
+   - **`main_menu.py`**: Landing page with “Create Account” and “Login” options.  
+   - **`login_page.py`** and **`register_page.py`**: Forms to submit credentials for account login or creation.  
+   - **`list_convos_page.py`**: Shows a list of conversations, including total unread counts. Offers search/filter and account deletion.  
+   - **`messaging_page.py`**: Main chat interface for sending and receiving messages and for loading additional chat history.
+
+2. **`client.py`**  
+   - Manages the **TCP connection** to the server:
+     - Uses non-blocking I/O (`selectors`) to send/receive data asynchronously.
+     - Stores references to the active GUI pages to trigger UI updates (e.g., new message arrivals).
+   - Maintains user-specific info such as `username`, the currently opened conversation, etc.
+   - Invokes *protocol-specific* serialization or parsing methods before sending/receiving data.
+
+3. **Protocol Interface (Client-Side)**  
+   - **`protocol_interface.py`**: For each high-level operation (login, registration, send message, etc.), it selects the **Custom** or **JSON** protocol implementation.  
+   - **`custom_protocol`** / **`json_protocol`**: Each module defines how to construct and parse messages. The system can switch protocols by setting `CUR_PROTO_VERSION` in the config.
+     - **Custom Protocol (version 1.0):**  
     Uses plain text messages with a fixed format.
-  - **JSON Protocol (version 2.0):**  
-    Encapsulates message data as a JSON object with fields like `opcode` and `data`.
-
-- **Configurations (config.py)**  
-  Contains global settings, such as the server’s IP/port, current protocol version (`CUR_PROTO_VERSION`), supported versions, and error codes. The file centralizes important constants for both the client and server.
-
-### Interaction Flow
-
-1. **Initialization:**  
-   When the client application starts, it establishes a socket connection to the server and initializes the UI using a `QStackedWidget` to manage multiple pages.
-   
-2. **User Authentication:**  
-   - **Account Creation:** The registration page sends a “CREATE” request with the username and hashed password.
-   - **Login:** The login page sends a “LOGIN” request. Upon success, the server responds with a list of conversations (with unread counts), and the client navigates to the conversation list page.
-   
-3. **Conversation and Messaging:**  
-   - The conversation list page displays available chats, allowing the user to select one.
-   - The messaging page is then used to send messages (via the “SEND” command) and request chat history.
-   - Real-time messaging is supported by push notifications (e.g., `PUSH_MSG`, `DEL_MSG`) that update the UI as new messages or deletions occur.
-
-4. **Protocol Handling:**  
-   All outgoing requests and incoming responses are processed by the protocol interface. Depending on the current protocol version:
-   - Version **1.0** uses string-based commands.
-   - Version **2.0** uses JSON objects with the fields `opcode` and `data`.
+     - **JSON Protocol (version 2.0):**  
+       Encapsulates message data as a JSON object with fields like `opcode` and `data`.
 
 ---
 
-## 2. Server-Side Architecture
+### 2.2 Server-Side Components
 
-### Components
+1. **`server.py`**  
+   - Main entry point for running the server:
+     - Binds to a socket (`SERVER_HOST`, `SERVER_PORT`) and listens for client connections.
+     - Uses `selectors` to handle multiple clients concurrently.
+   - For each connected client:
+     - Reads incoming data, splits it by newline, and **detects the protocol** (1.0 vs. 2.0).
+     - Calls the corresponding protocol handler (custom or JSON).
+     - Gathers outgoing data to send back via non-blocking writes.
 
-- **Main Server (server.py)**  
-  The entry point for the server application. It:
-  - Listens for incoming connections using a non-blocking socket.
-  - Uses the **selectors** module to manage multiple client connections concurrently.
-  - Dispatches incoming messages to the appropriate protocol handler based on the protocol version.
+2. **Protocol Modules (Server-Side)**  
+   - **`custom_protocol`**  
+     - Defines string-based message parsing and serialization (e.g., `1.0 LOGIN username password`).  
+   - **`json_protocol`**  
+     - Defines JSON-based message parsing (e.g., `{"opcode":"LOGIN","data":["username","password"]}`).
+   - Both modules rely on shared logic to coordinate with the database or to push real-time updates to recipients.
 
-- **Database Management (database.py)**  
-  Uses **SQLite** to manage persistent data, including:
-  - **Accounts:** User registration, authentication, and deactivation.
-  - **Messages:** Storing, retrieving, and deleting chat messages.
-  - **Conversation Data:** Querying conversations and managing unread message counts.
-  
-- **Protocol Handlers**  
-  Similar to the client, the server supports two protocol modules:
-  - **Custom Protocol (custom_protocol.py):** Handles string-based messages.
-  - **JSON Protocol (json_protocol.py):** Processes JSON formatted messages.
-  
-  The server’s protocol interface parses each incoming message, executes the requested action (e.g., login, send message, delete message), and sends back a response using the appropriate protocol.
-
-- **Utilities (utils.py)**  
-  Contains helper functions for logging, error handling, and tracking active clients (to support real-time messaging).
-
-### Interaction Flow
-
-1. **Connection Management:**  
-   - The server listens on a specified port.
-   - New client connections are accepted and registered for event notifications using **selectors**.
-   
-2. **Message Processing:**  
-   - Incoming data is buffered until a complete message (terminated by a newline) is received.
-   - The protocol version is determined from the message prefix, and the appropriate protocol handler processes the message.
-   - The server performs operations such as user authentication, storing messages, fetching chat history, and updating unread counts.
-   
-3. **Real-Time Communication:**  
-   - For messages like real-time pushes (e.g., `PUSH_MSG` and `DEL_MSG`), the server checks if the target client is online (tracked via an active clients dictionary).
-   - If so, the server immediately pushes the update to the recipient.
+3. **Database Integration**  
+   - **`database.py`**  
+     - Manages the SQLite database connection and schema (`accounts`, `messages`).  
+     - Common queries:
+       - **Register / verify** accounts (checking for duplicates, passwords, deactivation status).
+       - **Store / fetch** chat messages (plus marking messages read or unread).
+       - **Delete** messages or deactivate accounts.  
+     - All data is stored in `chat.db`.  
+   - **`utils.py`**  
+     - Tracks `active_clients` (username → socket mapping) for real-time pushes (e.g., if user A sends a message to user B who is online, the server pushes it immediately).
 
 ---
 
-## 3. Wire Protocol Overview
+## 3. Data Flows & Interactions
 
-### Custom Protocol (Version 1.0)
+Below is a brief look at the core flows:
 
-- **Format:**  
-  `1.0 [COMMAND] [data]`
-- **Usage:**  
-  Used for all message exchanges when `CUR_PROTO_VERSION` is set to `"1.0"`.
+1. **User Registration**  
+   - Client’s “Register” page collects `username` + `password`, hashes the password, and invokes `protocol_interface.create_registration_request(...)`.
+   - Server checks if username already exists. If not, it inserts a row in the `accounts` table.
+   - Returns success or error code to the client. If successful, the client transitions to the conversations list.
 
-### JSON Protocol (Version 2.0)
+2. **User Login**  
+   - Client’s “Login” page sends `username` + hashed `password`.
+   - Server validates credentials against `accounts`.  
+   - On success, sends back a list of existing conversations (plus unread counts).  
+   - Client displays the **ListConvosPage**.
 
-- **Format:**  
-  `2.0 {"opcode": "<COMMAND>", "data": ["arg1", "arg2", ...]}`
-- **Usage:**  
-  When using JSON protocol, every message is prefixed with `2.0` followed by a JSON object containing:
-  - **opcode:** A string indicating the command.
-  - **data:** An array of strings representing the message parameters.
+3. **Listing Conversations**  
+   - The server fetches the relevant data from `messages` and `accounts`.
+   - The client displays each conversation with the number of unread messages. Also shows the total unread count on top.
+
+4. **Chat Messaging**  
+   1. **Sending**:  
+      - Client uses `create_send_message_request(...).`  
+      - Server stores the message in `messages`.  
+      - If the recipient is online, the server immediately pushes a **“new message”** notification.  
+      - Server replies with an acknowledgement containing the new message ID.  
+   2. **Receiving**:  
+      - If the user is in that conversation, the client immediately appends the new message to the chat window.  
+      - Otherwise, the unread count is updated so that user sees the new unread message next time they check.
+
+5. **Loading More Chat History**  
+   - The client can request older messages (e.g., pressing “Load Chat”).  
+   - Server queries older entries from the `messages` table (by message ID, descending) and returns them.  
+   - Client prepends them to the conversation display and maintains the scroll position.
+
+6. **Deleting a Message**  
+   - The client sends `create_delete_message_request(msg_id).`  
+   - Server removes the message from `messages`.  
+   - If the other user is online and also has that message in their UI, the server pushes a **“delete message”** event so they can remove it from the chat window.
+
+7. **Deleting an Account**  
+   - User can click “Delete Account.”  
+   - Client sends a deletion request.  
+   - Server sets `deactivated` in `accounts`. The user is effectively logged out and cannot log back in.  
+   - The server returns a confirmation, and the client navigates back to the Main Menu.
 
 ---
 
-## 4. Summary of Interactions
+## 4. Notable Implementation Details
 
-- **Client Initialization:**  
-  - Establish socket connection.
-  - Load UI pages and set initial protocol based on configuration.
-  
-- **User Actions:**  
-  - Registration/Login requests trigger server-side authentication and account management.
-  - Selection of a conversation prompts retrieval of chat history.
-  - Sending and receiving messages are handled in real time with immediate UI updates.
+1. **Non-Blocking I/O**  
+   - Both server and client use Python’s `selectors` to handle concurrent communication without multiple threads.
 
-- **Protocol Abstraction:**  
-  Both client and server use a protocol interface to abstract away the details of the wire format. This design allows easy switching between custom and JSON protocols without changing the core application logic.
+2. **Protocol Selection**  
+   - A **single configuration** variable `CUR_PROTO_VERSION` dictates whether the client (and server) uses the custom wire format or JSON format.
+   - The code in `protocol_interface.py` (client) and the server’s logic in `service_connection` will detect and dispatch the correct protocol routines.
+
+3. **SQLite Database**  
+   - Stores **user accounts** (with a `deactivated` flag) and **messages** (with `unread` as an integer).  
+   - The schema is initialized on server startup via `database.initialize_db()`.
+   - Queries for:
+     - **Registration/Login** (`register_account`, `verify_login`)  
+     - **Messages** (`store_message`, `get_recent_messages`, `delete_message`)  
+     - **Conversation & unread** retrieval (`get_conversations`).
+
+4. **Real-Time Updates**  
+   - The server keeps a dictionary `active_clients` that maps `username → socket`.  
+   - Whenever a message or deletion occurs, if the recipient (or other relevant party) is in `active_clients`, the server sends a push message so the UI updates immediately.
+
+5. **Security Considerations**  
+   - Passwords are hashed client-side using `hashlib.sha256(...)`.  
+   - The server does not store raw passwords, only their hashes.  
+   - This is a minimal approach: no SSL/TLS or advanced crypto is used in the sample code.
 
 ---
 
-This architecture provides a modular and scalable approach to building a real-time chat application. The separation of concerns between the UI, networking, protocol processing, and database management ensures that each component can be maintained and updated independently.
+## 5. Summary
+
+In summary, **Simple Chat** is a full-stack, event-driven application designed around a **client–server** pattern:
+
+- A **PyQt** client GUI that manages multiple pages (Main Menu, Login/Register, Conversation List, Chat).  
+- A **non-blocking** Python server that delegates requests and updates a persistent **SQLite** database.  
+- **Two protocols** (Custom 1.0 or JSON 2.0) for message serialization, switchable by a single config variable.
+
+This design provides a foundation that is:
+- **Modular** (UI, client logic, server logic, DB operations, and protocols all separated).
+- **Extensible** (additional features, alternative protocols, or changes to the message schema can be integrated with minimal disruption).
+- **Maintainable** (clear boundaries between data access and user interface code, plus well-defined internal protocol interfaces).
+
+**End of Architecture Overview**
