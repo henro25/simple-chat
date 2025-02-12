@@ -153,7 +153,7 @@ def handle_incoming_message(args, Client):
         del Client.list_convos_page.convo_order[ind]
         Client.list_convos_page.convo_order.insert(0, sender)
         # Refresh the page
-        Client.list_convos_page.refresh()
+        Client.list_convos_page.refresh(0)
 
 def handle_chat_history(args, Client):
     """Handles chat history sent from server."""
@@ -189,7 +189,7 @@ def handle_delete(args, Client):
             del Client.list_convos_page.convo_order[ind]
             Client.list_convos_page.convo_order.insert(0, sender)
             # Refresh the page
-            Client.list_convos_page.refresh()
+            Client.list_convos_page.refresh(0)
 
 def handle_push_user(args, Client):
     new_user = args[0]
