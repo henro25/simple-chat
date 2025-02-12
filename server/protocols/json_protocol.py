@@ -194,7 +194,6 @@ def process_message(message):
     Process an incoming JSON protocol message and dispatch to the appropriate server handler.
     """
     version, opcode, data = parse_message(message)
-    debug(f"Server: processing message wth protocol version: {version}")
     if version != PROTOCOL_VERSION:
         return wrap_message("ERROR", [UNSUPPORTED_VERSION])
     if opcode == "CREATE":
