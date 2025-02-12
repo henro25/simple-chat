@@ -81,9 +81,10 @@ def test_get_recent_messages():
     msg3_id = database.store_message(recipient, sender, "Message 3")
     msg4_id = database.store_message(sender, recipient, "Message 4")
 
-    messages = database.get_recent_messages(sender, recipient, limit=3)
+    num_unreads, messages = database.get_recent_messages(sender, recipient, limit=3)
 
     assert len(messages) == 3, "Should retrieve the 3 most recent messages."
+    assert num_unreads == 1, "Should have 1 unread message."
     assert messages[0]["message"] == "Message 2"
     assert messages[1]["message"] == "Message 3"
     assert messages[2]["message"] == "Message 4"
@@ -102,7 +103,7 @@ def test_get_recent_messages_with_oldest_message_id():
     msg4_id = database.store_message(sender, recipient, "Message D")
 
     # Fetch messages before msg3_id
-    older_messages = database.get_recent_messages(sender, recipient, limit=2, oldest_msg_id=msg3_id)
+    num_unreads, older_messages = database.get_recent_messages(sender, recipient, limit=2, oldest_msg_id=msg3_id)
 
     assert len(older_messages) == 2, "Should fetch 2 older messages."
     assert older_messages[0]["message"] == "Message A"
@@ -112,8 +113,9 @@ def test_get_recent_messages_empty():
     """
     Test retrieving messages when no conversation exists.
     """
-    messages = database.get_recent_messages("nonexistent_user", "other_user", limit=5)
+    num_unreads, messages = database.get_recent_messages("nonexistent_user", "other_user", limit=5)
     assert messages == [], "Should return an empty list when no messages exist."
+    assert num_unreads == 0, "Should have 0 unread messages."
 
 # ----------------------------
 # Tests for delete_message
