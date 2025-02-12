@@ -42,7 +42,7 @@ def handle_create(args):
             if user != username:
                 try:
                     debug(f"Server: pushing message: {push_user}")
-                    sock.sendall(push_user.encode('utf-8'))
+                    sock.sendall(push_user.encode('utf-8') + b"\n")
                 except Exception as e:
                     print(f"Failed to push message to {user}: {e}")
         return handle_get_conversations(username, REG_PG)
@@ -148,7 +148,7 @@ def handle_send_message(args):
         recipient_sock = active_clients[recipient]
         try:
             debug(f"Server: pushing message: {message}")
-            recipient_sock.sendall(push_message.encode('utf-8'))
+            recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
         except Exception as e:
             print(f"Failed to push message to {recipient}: {e}")
     
@@ -175,7 +175,7 @@ def handle_delete_messages(args):
             recipient_sock = active_clients[recipient]
             try:
                 debug(f"Server: pushing message: {response}")
-                recipient_sock.sendall(response.encode('utf-8'))
+                recipient_sock.sendall(response.encode('utf-8') + b"\n")
             except Exception as e:
                 print(f"Failed to push message to {recipient}: {e}")
         return response

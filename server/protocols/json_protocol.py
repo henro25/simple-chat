@@ -16,7 +16,7 @@ def wrap_message(opcode, data):
     """
     Wrap the opcode and data into a JSON protocol message prefixed with the protocol version.
     """
-    return f"{PROTOCOL_VERSION} {json.dumps({'opcode': opcode, 'data': data})}\n"
+    return f"{PROTOCOL_VERSION} {json.dumps({'opcode': opcode, 'data': data})}"
 
 def parse_message(message):
     """
@@ -54,7 +54,7 @@ def handle_create(data):
             if user != username:
                 try:
                     debug(f"Server: pushing message: {push_user}")
-                    sock.sendall(push_user.encode('utf-8'))
+                    sock.sendall(push_user.encode('utf-8') + b"\n")
                 except Exception as e:
                     print(f"Failed to push message to {user}: {e}")
         return handle_get_conversations(username, REG_PG)
@@ -146,7 +146,7 @@ def handle_send_message(data):
         recipient_sock = active_clients[recipient]
         try:
             debug(f"Server: pushing message: {push_message}")
-            recipient_sock.sendall(push_message.encode('utf-8'))
+            recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
         except Exception as e:
             print(f"Failed to push message to {recipient}: {e}")
     database.update_num_unread(recipient, sender, 1)
@@ -167,7 +167,7 @@ def handle_delete_messages(data):
             recipient_sock = active_clients[recipient]
             try:
                 debug(f"Server: pushing message: {response}")
-                recipient_sock.sendall(response.encode('utf-8'))
+                recipient_sock.sendall(response.encode('utf-8') + b"\n")
             except Exception as e:
                 print(f"Failed to push message to {recipient}: {e}")
         return response
