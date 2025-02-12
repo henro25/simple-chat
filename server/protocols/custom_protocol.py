@@ -91,8 +91,8 @@ def handle_get_chat_history(args):
     oldest_msg_id = int(args[2])
     num_msgs = int(args[3])
     page_code = MSG_PG if oldest_msg_id != -1 else CONVO_PG
-    history = database.get_recent_messages(client, user2, oldest_msg_id=oldest_msg_id, limit=num_msgs)
-    response = f"1.0 MSGS {page_code}"
+    unreads, history = database.get_recent_messages(client, user2, oldest_msg_id=oldest_msg_id, limit=num_msgs)
+    response = f"1.0 MSGS {page_code} {unreads}"
     if not history:
         return response
     is_client = int(history[0]["sender"] == client)
@@ -119,9 +119,7 @@ def handle_get_chat_history(args):
     formatted_messages = f" {num_messages}{formatted_messages}"
     response += formatted_messages
     
-    # Update the number of unread messages for the recipient
-    cur_num_unread = database.get_num_unread(client)
-    debug(f"{client} read {min(cur_num_unread, num_messages_from_sender_read)} unread messages from {user2}")
+    debug(f"{client} read {unreads} unread messages from {user2}")
     
     return response
 

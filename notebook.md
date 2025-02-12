@@ -223,7 +223,7 @@ Develop a messaging system using a client-server architecture with two different
   
 - **Chat History:**
   - **Format:**  
-    `1.0 MSGS [page code] [1 if user who sent the ealiest message is same as the user receiving this history else 0] [num msgs] [msg ID, num words, msg1] [msg ID, num words, msg2] ...`
+    `1.0 MSGS [page code] [number of unread messages] [1 if user who sent the ealiest message is same as the user receiving this history else 0] [num msgs] [msg ID, num words, msg1] [msg ID, num words, msg2] ...`
   - **Example:**  
     - User this message is being sent to is user1: `1.0 MSGS 13 1 3 111 2 hello bridget 112 3 it's henry ! 113 1 Hi!`
     - User this message is being sent to is NOT user1: `1.0 MSGS 12 0 2 2 hello bridget 3 it's henry ! 1 Hi! 1 2241 2 Hello Back`
@@ -531,9 +531,9 @@ Develop a messaging system using a client-server architecture with two different
   **Server-side**:
   1. [DONE] Real time deletions to users who are online
      1. [DONE] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
-  2. [] Handle updating unread count after delivery
-  3. [] Handle offline unreads
-  4. [] Handle online unreads
+  2. [DONE] Handle updating unread count after delivery
+  3. [DONE] Handle offline unreads
+  4. [DONE] Handle online unreads
   5. [DONE] Delete Account
      1. [DONE] Modify accounts db for to keep track of deactibation of account
      2. [DONE] Does not accept send message requests to deactivated username
@@ -545,6 +545,14 @@ Develop a messaging system using a client-server architecture with two different
   2. [DONE] Create real time message delivery user side acknowledgement wire protocol
   3. [DONE] Modify message deletion to include sender name
 
+
+---
+
+# 2/12/25
+
+## Implementing Messaging Page UI
+  **Changed Wire Protocol**:
+  1. [DONE] Modify chat history to include number of unread messages of recipient in the chat history
 
 
 *This document is a living record. Future updates and refinements will be made as the project evolves.*

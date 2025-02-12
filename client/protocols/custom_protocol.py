@@ -70,24 +70,20 @@ def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1
 def deserialize_chat_history(chat_history):
     """
     Parse a server response of the form:
-      `1.0 MSGS [page code] [1 if user who sent the ealiest message is same as the user 
+      `1.0 MSGS [page code] [num_unreads] [1 if user who sent the ealiest message is same as the user 
       receiving this history else 0] [num msgs] [msg ID (if 1), num words, msg1] 
       [msg ID (if 1), num words, msg2] ...`
     into a list of tuples: [(username, msg ID, message), (username, msg ID, message), ...].
     """
     if not chat_history:
-        return 0, []
+        return []
     message_list = []
     is_client = int(chat_history[0])
     ind = 1
-    num_msgs_read = 0
     while ind < len(chat_history):
         try:
             num_messages = int(chat_history[ind])
             ind += 1
-            # update the number of messages read from the other user; used to update num_unread
-            if not is_client:
-                num_msgs_read += num_messages
         except ValueError:
             num_messages = 0
         while num_messages > 0 and ind < len(chat_history):
@@ -103,7 +99,7 @@ def deserialize_chat_history(chat_history):
             num_messages -= 1
         is_client = abs(1-is_client)
     
-    return num_msgs_read, message_list
+    return message_list
 
 def create_send_message_request(username, other_user, message):
     """
@@ -154,8 +150,9 @@ def handle_incoming_message(args, Client):
 def handle_chat_history(args, Client):
     """Handles chat history sent from server."""
     page_code = int(args[0])
-    num_msgs_read, chat_history = deserialize_chat_history(args[1:])
-    updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_msgs_read)
+    num_unreads = int(args[1])
+    chat_history = deserialize_chat_history(args[2:])
+    updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_unreads)
     if page_code==CONVO_PG:
         Client.list_convos_page.conversationSelected.emit(chat_history, updated_unread)
     else:

@@ -317,14 +317,14 @@ def get_recent_messages(user1, user2, oldest_msg_id=-1, limit=20):
         limit (int): Number of messages to fetch (default 20).
 
     Returns:
-        list: A list of dictionaries containing messages.
+        int, list: (int) number of unreads for recipient among the messgaes, A list of dictionaries containing messages.
     """
     conn = get_db_connection()
     cur = conn.cursor()
     
     if oldest_msg_id == -1:
         cur.execute("""
-            SELECT id, sender, recipient, message, timestamp 
+            SELECT id, sender, recipient, message, timestamp, unread 
             FROM messages 
             WHERE (sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)
             ORDER BY id DESC 
@@ -333,7 +333,7 @@ def get_recent_messages(user1, user2, oldest_msg_id=-1, limit=20):
     else:
         # Fetch older messages (before `oldest_message_id`)
         cur.execute("""
-            SELECT id, sender, recipient, message, timestamp 
+            SELECT id, sender, recipient, message, timestamp, unread 
             FROM messages 
             WHERE ((sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?))
             AND id < ? 
@@ -344,6 +344,7 @@ def get_recent_messages(user1, user2, oldest_msg_id=-1, limit=20):
     messages = cur.fetchall()
     # Extract message IDs that need to be marked as read
     message_ids = [row["id"] for row in messages if row["recipient"] == user1]  # Only mark messages received by user1
+    unreads = sum([row["unread"] for row in messages if row["recipient"] == user1]) # Sum the number of unreads
 
     if message_ids:
         # Update unread status for fetched messages
@@ -357,7 +358,7 @@ def get_recent_messages(user1, user2, oldest_msg_id=-1, limit=20):
     conn.close()
     
     # Convert SQLite row objects to a list of dictionaries
-    return [
+    return unreads, [
         {"id": row["id"], "sender": row["sender"], "recipient": row["recipient"], "message": row["message"], "timestamp": row["timestamp"]}
         for row in reversed(messages)  # Reverse to show oldest first
     ]
