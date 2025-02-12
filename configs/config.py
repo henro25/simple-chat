@@ -7,6 +7,7 @@ Date: 2024-2-6
 
 # Define host and port for the server.
 SERVER_HOST = 'localhost' # '127.0.0.1'
+# SERVER_HOST = '10.250.195.223' # "Henry's address"
 SERVER_PORT = 65432  # Choose an available TCP port
 
 PROTOCOL = "custom"  # Options: "custom" or "json"
