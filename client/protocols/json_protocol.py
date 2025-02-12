@@ -148,54 +148,48 @@ def create_delete_message_request(msg_id):
 # --- Handler functions (for processing incoming messages) ---
 
 def handle_users(data, Client):
-    """
-    Handles a list of users sent from the server.
-    
-    Expected data format:
-      [page_code, client_username, user1, unread1, user2, unread2, ...]
-    """
-    try:
-        page_code = int(data[0])
-    except Exception:
-        page_code = 0
+    """Handles a list of users sent from server."""
+    page_code = int(data[0])
     username = data[1]
-    convo_list = deserialize_chat_conversations(data)
+    convo_list = deserialize_chat_conversations(data[2:])
     if page_code == REG_PG:
         Client.register_page.registerSuccessful.emit(username, convo_list)
     elif page_code == LGN_PG:
         Client.login_page.loginSuccessful.emit(username, convo_list)
 
 def handle_incoming_message(data, Client):
-    """
-    Handles an incoming pushed message.
-    
-    Expected data format:
-      [sender, msg_id, message]
-    """
+    """Handles an incoming message pushed from the server."""
     sender = data[0]
-    try:
-        msg_id = int(data[1])
-    except Exception:
-        msg_id = -1
-    message = data[2] if len(data) > 2 else ""
-    if Client.messaging_page:
+    msg_id = int(data[1])
+    message = " ".join(data[2:])
+
+    # Notify the UI to update the chat if in conversation with sender
+    if Client.cur_convo == sender:
         Client.messaging_page.displayIncomingMessage(sender, msg_id, message)
+        # Send message delivered acknowledgement back to server
+        ack = wrap_message("ACK", [msg_id])
+        Client.send_request(ack)
+    # Update number of unreads displayed on list convos page
+    else:
+        Client.list_convos_page.num_unreads[sender] += 1
+        # Move sender to top of convos
+        ind = Client.list_convos_page.convo_order.index(sender)
+        del Client.list_convos_page.convo_order[ind]
+        Client.list_convos_page.convo_order.insert(0, sender)
+        # Refresh the page
+        Client.list_convos_page.refresh(0)
 
 def handle_chat_history(data, Client):
-    """
-    Handles chat history sent from the server.
-    
-    Expected data format:
-      [page_code, is_client, num_msgs, msg_id, num_words, msg..., ...]
-    """
-    try:
-        page_code = int(data[0])
-    except Exception:
-        page_code = 0
-    num_msgs_read, chat_history = deserialize_chat_history(data)
-    if page_code == CONVO_PG:
-        Client.list_convos_page.conversationSelected.emit(chat_history, num_msgs_read)
+    """Handles chat history sent from server."""
+    page_code = int(data[0])
+    num_msgs_read, chat_history = deserialize_chat_history(data[1:])
+    updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_msgs_read)
+    if page_code==CONVO_PG:
+        Client.list_convos_page.conversationSelected.emit(chat_history, updated_unread)
     else:
+        if Client.messaging_page.num_unread > 0:
+            Client.messaging_page.updateUnreadCount(updated_unread)
+            Client.list_convos_page.updateAfterRead(updated_unread)
         Client.messaging_page.addChatHistory(chat_history)
 
 def handle_ack(data, Client):
@@ -205,10 +199,7 @@ def handle_ack(data, Client):
     Expected data format:
       [msg_id]
     """
-    try:
-        msg_id = int(data[0])
-    except Exception:
-        msg_id = -1
+    msg_id = int(data[0])
     Client.messaging_page.displaySentMessage(msg_id)
 
 def handle_delete(data, Client):
@@ -218,12 +209,22 @@ def handle_delete(data, Client):
     Expected data format:
       [msg_id]
     """
-    try:
-        msg_id = int(data[0])
-    except Exception:
-        msg_id = -1
-    if msg_id in Client.messaging_page.message_info:
+    msg_id = int(data[0])
+    sender = data[1]
+    unread = int(data[2])
+    # If in conversation then real time deletion
+    if Client.cur_convo and msg_id in Client.messaging_page.message_info:
         Client.messaging_page.removeMessageDisplay(msg_id)
+    else:
+        if unread:
+            # Update number of unreads
+            Client.list_convos_page.num_unreads[sender] -= 1
+            # Move sender to top of convos
+            ind = Client.list_convos_page.convo_order.index(sender)
+            del Client.list_convos_page.convo_order[ind]
+            Client.list_convos_page.convo_order.insert(0, sender)
+            # Refresh the page
+            Client.list_convos_page.refresh(0)
 
 def handle_push_user(data, Client):
     """
@@ -233,7 +234,7 @@ def handle_push_user(data, Client):
       [new_user]
     """
     new_user = data[0]
-    Client.list_convos_page.chat_conversations.append((new_user, 0))
+    Client.list_convos_page.convo_order.append(new_user)
     Client.list_convos_page.displayConvo(new_user)
 
 def handle_delete_acc(Client):
