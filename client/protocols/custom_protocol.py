@@ -6,12 +6,6 @@ Date: 2024-2-7
 """
 
 from configs.config import *
-from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel,
-    QScrollArea, QSizePolicy, QMessageBox, QApplication
-)
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, pyqtSignal
 
 def parse_message(message):
     """

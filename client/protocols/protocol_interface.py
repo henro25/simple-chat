@@ -29,7 +29,7 @@ def create_registration_request(username, password):
         return custom_protocol.create_registration_request(username, password)
     elif config.CUR_PROTO_VERSION == "2.0":
         # For JSON, we assume that wrapping a message with opcode "CREATE" is equivalent.
-        return json_protocol.wrap_message("CREATE", [username, password])
+        return json_protocol.create_registration_request(username, password)
     else:
         return unsupported_error()
 
@@ -37,7 +37,7 @@ def create_login_request(username, password):
     if config.CUR_PROTO_VERSION == "1.0":
         return custom_protocol.create_login_request(username, password)
     elif config.CUR_PROTO_VERSION == "2.0":
-        return json_protocol.wrap_message("LOGIN", [username, password])
+        return json_protocol.create_login_request(username, password)
     else:
         return unsupported_error()
 
@@ -45,7 +45,7 @@ def create_delete_account_request(username):
     if config.CUR_PROTO_VERSION == "1.0":
         return custom_protocol.create_delete_account_request(username)
     elif config.CUR_PROTO_VERSION == "2.0":
-        return json_protocol.wrap_message("DEL_ACC", [username])
+        return json_protocol.create_delete_account_request(username)
     else:
         return unsupported_error()
 
@@ -62,7 +62,7 @@ def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1
     if config.CUR_PROTO_VERSION == "1.0":
         return custom_protocol.create_chat_history_request(username, other_user, num_msgs, oldest_msg_id)
     elif config.CUR_PROTO_VERSION == "2.0":
-        return json_protocol.wrap_message("READ", [username, other_user, num_msgs, oldest_msg_id])
+        return json_protocol.create_chat_history_request(username, other_user, num_msgs, oldest_msg_id)
     else:
         return unsupported_error()
 
@@ -78,7 +78,7 @@ def create_send_message_request(username, other_user, message):
     if config.CUR_PROTO_VERSION == "1.0":
         return custom_protocol.create_send_message_request(username, other_user, message)
     elif config.CUR_PROTO_VERSION == "2.0":
-        return json_protocol.wrap_message("SEND", [username, other_user, message])
+        return json_protocol.create_send_message_request(username, other_user, message)
     else:
         return unsupported_error()
 
@@ -86,7 +86,7 @@ def create_delete_message_request(msg_id):
     if config.CUR_PROTO_VERSION == "1.0":
         return custom_protocol.create_delete_message_request(msg_id)
     elif config.CUR_PROTO_VERSION == "2.0":
-        return json_protocol.wrap_message("DEL_MSG", [msg_id])
+        return json_protocol.create_delete_message_request(msg_id)
     else:
         return unsupported_error()
 

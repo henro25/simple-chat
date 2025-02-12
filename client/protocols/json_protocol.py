@@ -7,6 +7,7 @@ Date: 2024-2-6
 
 import json
 from configs.config import *
+from client.protocols.custom_protocol import deserialize_chat_history, deserialize_chat_conversations
 
 # Define the protocol version used for JSON messages.
 PROTOCOL_VERSION = "2.0"
@@ -60,26 +61,26 @@ def create_delete_account_request(username):
     """
     return wrap_message("DEL_ACC", [username])
 
-def deserialize_chat_conversations(chat_conversations):
-    """
-    Parse a server response for conversations.
+# def deserialize_chat_conversations(chat_conversations):
+#     """
+#     Parse a server response for conversations.
     
-    Expected data format (as received in the JSON message):
-      [page_code, client_username, user1, unread1, user2, unread2, ...]
+#     Expected data format (as received in the JSON message):
+#       [page_code, client_username, user1, unread1, user2, unread2, ...]
     
-    Returns a list of tuples: [(user1, unread1), (user2, unread2), ...].
-    """
-    convo_list = []
-    # Skip the first two elements (page code and client username)
-    for i in range(2, len(chat_conversations), 2):
-        if i + 1 < len(chat_conversations):
-            user = chat_conversations[i]
-            try:
-                unread = int(chat_conversations[i + 1])
-            except ValueError:
-                unread = 0
-            convo_list.append((user, unread))
-    return convo_list
+#     Returns a list of tuples: [(user1, unread1), (user2, unread2), ...].
+#     """
+#     convo_list = []
+#     # Skip the first two elements (page code and client username)
+#     for i in range(2, len(chat_conversations), 2):
+#         if i + 1 < len(chat_conversations):
+#             user = chat_conversations[i]
+#             try:
+#                 unread = int(chat_conversations[i + 1])
+#             except ValueError:
+#                 unread = 0
+#             convo_list.append((user, unread))
+#     return convo_list
 
 def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1):
     """
@@ -87,43 +88,43 @@ def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1
     """
     return wrap_message("READ", [username, other_user, oldest_msg_id, num_msgs])
 
-def deserialize_chat_history(chat_history):
-    """
-    Parse a server response for chat history.
+# def deserialize_chat_history(chat_history):
+#     """
+#     Parse a server response for chat history.
     
-    Expected data format (as part of the JSON "data" array):
-      [page_code, is_client, num_msgs, msg_id1, num_words1, msg_word1a, msg_word1b, ...,
-       msg_id2, num_words2, msg_word2a, msg_word2b, ...]
+#     Expected data format (as part of the JSON "data" array):
+#       [page_code, is_client, num_msgs, msg_id1, num_words1, msg_word1a, msg_word1b, ...,
+#        msg_id2, num_words2, msg_word2a, msg_word2b, ...]
     
-    Returns:
-        (num_msgs_read, message_list)
-      where message_list is a list of tuples: [(is_client, msg_id, message), ...].
-    Note: The num_msgs_read value may be zero if not provided.
-    """
-    if not chat_history:
-        return 0, []
-    try:
-        page_code = int(chat_history[0])
-        is_client = int(chat_history[1])
-        num_msgs = int(chat_history[2])
-    except Exception:
-        return 0, []
+#     Returns:
+#         (num_msgs_read, message_list)
+#       where message_list is a list of tuples: [(is_client, msg_id, message), ...].
+#     Note: The num_msgs_read value may be zero if not provided.
+#     """
+#     if not chat_history:
+#         return 0, []
+#     try:
+#         page_code = int(chat_history[0])
+#         is_client = int(chat_history[1])
+#         num_msgs = int(chat_history[2])
+#     except Exception:
+#         return 0, []
     
-    message_list = []
-    ind = 3
-    num_msgs_read = 0  # This value could be adjusted if the protocol sends it differently.
-    for _ in range(num_msgs):
-        try:
-            msg_id = int(chat_history[ind])
-            num_words = int(chat_history[ind + 1])
-            ind += 2
-            msg_words = chat_history[ind:ind + num_words]
-            msg = ' '.join(msg_words)
-            message_list.append((is_client, msg_id, msg))
-            ind += num_words
-        except Exception:
-            break
-    return num_msgs_read, message_list
+#     message_list = []
+#     ind = 3
+#     num_msgs_read = 0  # This value could be adjusted if the protocol sends it differently.
+#     for _ in range(num_msgs):
+#         try:
+#             msg_id = int(chat_history[ind])
+#             num_words = int(chat_history[ind + 1])
+#             ind += 2
+#             msg_words = chat_history[ind:ind + num_words]
+#             msg = ' '.join(msg_words)
+#             message_list.append((is_client, msg_id, msg))
+#             ind += num_words
+#         except Exception:
+#             break
+#     return num_msgs_read, message_list
 
 def create_send_message_request(username, other_user, message):
     """
@@ -176,6 +177,7 @@ def handle_chat_history(data, Client):
     page_code = int(data[0])
     num_msgs_read, chat_history = deserialize_chat_history(data[1:])
     updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_msgs_read)
+    debug(f"page_code: {page_code}, updated_unread: {updated_unread}")
     if page_code==CONVO_PG:
         Client.list_convos_page.conversationSelected.emit(chat_history, updated_unread)
     else:
