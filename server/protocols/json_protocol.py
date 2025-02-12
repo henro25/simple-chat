@@ -190,6 +190,17 @@ def handle_delete_account(data):
     else:
         return wrap_message("ERROR", [errno])
 
+def handle_received_message(data):
+    """
+    Handle a client's acknowledgement of receiving another user's message
+
+    Parameters: [msg_id]
+
+    Returns no response or "1.0 ERROR {errno}" if encounter error
+    """
+    msg_id = int(data[0])
+    database.mark_message_as_read(msg_id)
+
 def process_message(message):
     """
     Process an incoming JSON protocol message and dispatch to the appropriate server handler.
@@ -209,5 +220,7 @@ def process_message(message):
         return handle_delete_messages(data)
     elif opcode == "DEL_ACC":
         return handle_delete_account(data)
+    elif opcode == "REC_MSG":
+        return handle_received_message(data)
     else:
         return wrap_message("ERROR", [UNKNOWN_COMMAND])
