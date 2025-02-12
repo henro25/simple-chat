@@ -93,7 +93,7 @@ class ChatApp(QMainWindow):
         )
         self.messagingPage.backClicked.connect(
             lambda: (
-                self.listConvosPage.refresh(),
+                self.listConvosPage.refresh(1),
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
