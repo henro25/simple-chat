@@ -30,7 +30,6 @@ class Client:
         self.register_page = None   # store the register page for client
         self.login_page = None      # store the login page for client
         self.list_convos_page = None  # store the current list convo page the client is on
-        self.outgoing_requests = []  # Queue for outgoing messages
         self.username = None        # Store username of client
         self.cur_convo = None       # Store username of other user if client on messaging page
         self.registered = 0         # Stores state of socket
@@ -84,7 +83,11 @@ class Client:
         Instead of immediately waiting for a response, we store outgoing data and
         let the selector notify us when we can send it.
         """
-        self.outgoing_requests.append(request)
+        debug(f"Client: sending request: {request}")
+        try:
+            self.sock.sendall(request.encode('utf-8'))
+        except Exception as e:
+            print(f"Error sending request: {e}")
 
     def run(self):
         """Main event loop to listen for messages and handle requests."""
