@@ -68,10 +68,12 @@ def handle_login(data):
     """
     username, password = data[0], data[1]
     success, errno = database.verify_login(username, password)
+    if username in active_clients:
+        return wrap_message("ERROR", [USER_LOGGED_ON])
     if success:
         return handle_get_conversations(username, LGN_PG)
     else:
-        return wrap_message("ERROR", [errno])
+        return f"1.0 ERROR {errno}"
 
 def handle_get_conversations(recipient, page_code):
     """
@@ -134,13 +136,15 @@ def handle_send_message(data):
 
     Returns a response with data: [msg_id].
     """
+    msg_id = -1
     sender = data[0]
     recipient = data[1]
     message = " ".join(data[2:])
     valid_recipient = database.verify_valid_recipient(recipient)
-    msg_id = -1
     if valid_recipient:
         msg_id = database.store_message(sender, recipient, message)
+    
+    # Send the message to the recipient if they are online
     push_message = wrap_message("PUSH_MSG", [sender, str(msg_id), message])
     if recipient in active_clients:
         recipient_sock = active_clients[recipient]
