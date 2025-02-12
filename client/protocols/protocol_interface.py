@@ -58,11 +58,11 @@ def deserialize_chat_conversations(chat_conversations):
     else:
         return unsupported_error()
 
-def create_chat_history_request(username, other_user, oldest_msg_id=-1):
+def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1):
     if config.CUR_PROTO_VERSION == "1.0":
-        return custom_protocol.create_chat_history_request(username, other_user, oldest_msg_id)
+        return custom_protocol.create_chat_history_request(username, other_user, num_msgs, oldest_msg_id)
     elif config.CUR_PROTO_VERSION == "2.0":
-        return json_protocol.wrap_message("READ", [username, other_user, oldest_msg_id])
+        return json_protocol.wrap_message("READ", [username, other_user, num_msgs, oldest_msg_id])
     else:
         return unsupported_error()
 

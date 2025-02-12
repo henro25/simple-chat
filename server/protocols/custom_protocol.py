@@ -89,8 +89,9 @@ def handle_get_chat_history(args):
     client = args[0]
     user2 = args[1]
     oldest_msg_id = int(args[2])
+    num_msgs = int(args[3])
     page_code = MSG_PG if oldest_msg_id != -1 else CONVO_PG
-    history = database.get_recent_messages(client, user2, oldest_msg_id=oldest_msg_id)
+    history = database.get_recent_messages(client, user2, oldest_msg_id=oldest_msg_id, limit=num_msgs)
     response = f"1.0 MSGS {page_code}"
     if not history:
         return response

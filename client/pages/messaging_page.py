@@ -8,7 +8,7 @@ Date: 2024-2-6
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel,
-    QScrollArea, QSizePolicy, QMessageBox, QApplication
+    QScrollArea, QSizePolicy, QMessageBox, QApplication, QSpinBox
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, pyqtSignal
@@ -59,8 +59,10 @@ class MessagingPage(QWidget):
         main_layout.setContentsMargins(30, 30, 30, 30)
         main_layout.setSpacing(20)
 
-        # Header layout: Back button on left; unread count and Load Chat button on right.
+        # Header layout: Back button on left; unread count, spin box, and Load Chat button on right.
         header_layout = QHBoxLayout()
+        
+        # Back button
         self.back_button = QPushButton("Back")
         self.back_button.setFixedHeight(30)
         self.back_button.setStyleSheet("""
@@ -75,15 +77,22 @@ class MessagingPage(QWidget):
         """)
         header_layout.addWidget(self.back_button)
         self.back_button.clicked.connect(self.goBack)
-        
+
         header_layout.addStretch()  # Spacer between left and right items.
-        
+
+        # Unread messages label
         self.unread_label = QLabel("0 unread")
-        unread_font = QFont("Helvetica", 12)
-        self.unread_label.setFont(unread_font)
+        self.unread_label.setFont(QFont("Helvetica", 12))
         header_layout.addWidget(self.unread_label)
-        
-        # "Load Chat" button instead of an up arrow.
+
+        # Spin box to select number of messages to load
+        self.load_count_spinbox = QSpinBox()
+        self.load_count_spinbox.setMinimum(1)
+        self.load_count_spinbox.setMaximum(1000)
+        self.load_count_spinbox.setValue(20)  # Default: Load 20 messages
+        header_layout.addWidget(self.load_count_spinbox)
+
+        # "Load Chat" button
         self.load_chat_button = QPushButton("Load Chat")
         self.load_chat_button.setFixedHeight(30)
         self.load_chat_button.setStyleSheet("""
@@ -98,35 +107,27 @@ class MessagingPage(QWidget):
         """)
         self.load_chat_button.clicked.connect(self.loadChat)
         header_layout.addWidget(self.load_chat_button)
+        
         main_layout.addLayout(header_layout)
 
-        # Chat area: QScrollArea with a widget using a QVBoxLayout for messages.
+        # Scrollable chat area
         self.chat_area = QScrollArea()
         self.chat_area.setWidgetResizable(True)
         self.chat_widget = QWidget()
         self.chat_layout = QVBoxLayout(self.chat_widget)
         self.chat_layout.setSpacing(10)
         self.chat_layout.setContentsMargins(10, 10, 10, 10)
-        # Align messages to the bottom so they appear anchored when there are few.
         self.chat_layout.setAlignment(Qt.AlignBottom)
         self.chat_area.setWidget(self.chat_widget)
         main_layout.addWidget(self.chat_area, stretch=1)
-        
-        # Message input area: QLineEdit and Send button.
+
+        # Message input area
         input_layout = QHBoxLayout()
         self.messageEdit = QLineEdit()
         self.messageEdit.setPlaceholderText("Type your message here...")
         self.messageEdit.setFixedHeight(40)
-        self.messageEdit.setStyleSheet("""
-            QLineEdit {
-                background-color: #FFFFFF;
-                color: #333333;
-                border: 1px solid #CCCCCC;
-                padding: 5px;
-            }
-        """)
         input_layout.addWidget(self.messageEdit, stretch=1)
-        
+
         self.btnSend = QPushButton("Send")
         self.btnSend.setFixedHeight(40)
         self.btnSend.setStyleSheet("""
@@ -141,12 +142,13 @@ class MessagingPage(QWidget):
         """)
         input_layout.addWidget(self.btnSend)
         main_layout.addLayout(input_layout)
-        
+
         self.setLayout(main_layout)
-        
+
         # Connect the Send button and Return key to sendMessage.
         self.btnSend.clicked.connect(self.sendMessage)
         self.messageEdit.returnPressed.connect(self.sendMessage)
+
 
     def sendMessage(self):
         message = self.messageEdit.text().strip()
@@ -229,11 +231,12 @@ class MessagingPage(QWidget):
 
     def loadChat(self):
         """Show a pop-up message indicating that Load Chat is not yet implemented."""
+        num_messages = self.load_count_spinbox.value()
         # get oldest msg_id
         oldest_msg_id = self.chat_history[0] if self.chat_history else -1
 
         # Create and send request to fetch older messages
-        request = create_chat_history_request(self.Client.username, self.Client.cur_convo, oldest_msg_id)
+        request = create_chat_history_request(self.Client.username, self.Client.cur_convo, num_msgs=num_messages, oldest_msg_id=oldest_msg_id)
         self.Client.send_request(request)
 
     def addChatHistory(self, earlier_messages):

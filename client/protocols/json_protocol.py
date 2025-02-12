@@ -89,11 +89,11 @@ def deserialize_chat_conversations(chat_conversations):
             convo_list.append((user, unread))
     return convo_list
 
-def create_chat_history_request(username, other_user, oldest_msg_id=-1):
+def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1):
     """
     Construct a chat history request message in JSON.
     """
-    return wrap_message("READ", [username, other_user, oldest_msg_id])
+    return wrap_message("READ", [username, other_user, oldest_msg_id, num_msgs])
 
 def deserialize_chat_history(chat_history):
     """

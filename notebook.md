@@ -259,8 +259,8 @@ Develop a messaging system using a client-server architecture with two different
   - **Example:** `1.0 LOGIN henro 2620`
 
 - **Request Chat History:**
-  - **Format:** `1.0 READ [username] [other user] [oldest_msg_id default set to -1 when requesting most recent chat history for when first loading messaging page]`
-  - **Example:** `1.0 READ henro bridgetma04 121`
+  - **Format:** `1.0 READ [username] [other user] [oldest_msg_id default set to -1 when requesting most recent chat history for when first loading messaging page] [number of messages request]`
+  - **Example:** `1.0 READ henro bridgetma04 121 10`
   
 - **Send Message:**
   - **Format:** `1.0 SEND [sender] [recipient] [message]`
@@ -281,10 +281,6 @@ Develop a messaging system using a client-server architecture with two different
 - **Real-Time Delivered Message:**
   - **Format:** `1.0 REC_MSG [msg_id]`
   - **Example:** `1.0 REC_MSG 11`
-
-- **Set count:**
-  - **Format:** `1.0 SET_CNT [count]`
-  - **Example:** `1.0 SET_CNT 5`
 
 ---
 

@@ -23,40 +23,30 @@ class CustomSpinBoxWidget(QSpinBox):
         # Remove default button symbols
         self.setButtonSymbols(QSpinBox.UpDownArrows)
 
-        # Set custom styles for the spin box
+        # Set modern styles for the spin box
         self.setStyleSheet("""
             QSpinBox {
-                background-color: white;
-                color: black;
-                border: 1px solid black;
+                background-color: #f5f5f5;
+                color: #2C3E50;
+                border: 2px solid #bdc3c7;
+                border-radius: 8px;
+                padding: 5px 10px;
+                font-size: 14px;
+                min-width: 80px;
             }
-            QSpinBox::up-button {
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                height: 5px;
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 16px;
                 border: none;
                 background: none;
-                padding-top: 2px;
             }
-            QSpinBox::down-button {
-                subcontrol-origin: border;
-                subcontrol-position: bottom right;
-                height: 5px;
-                border: none;
-                background: none;
-                padding-bottom: 2px;
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background-color: #ecf0f1;
             }
-            QSpinBox::up-button {
-                margin-top: 2px;  /* Adds space from the top */
-            }
-            QSpinBox::down-button {
-                margin-bottom: 2px; /* Adds space from the bottom */
-            }
-            """)
+        """)
 
-        # Set up a custom font for the arrows
-        self.arrow_font = QFont("Helvetica", 12)
-        self.installEventFilter(self)  # Use an event filter to customize arrow rendering
+        # Set up custom font for the arrows
+        self.arrow_font = QFont("Arial", 12, QFont.Bold)
+        self.installEventFilter(self)  # Use event filter for custom rendering
 
     def eventFilter(self, obj, event):
         """Overrides the default up/down button icons with text-based arrows."""
@@ -72,9 +62,9 @@ class CustomSpinBoxWidget(QSpinBox):
 
             # Draw custom arrows inside the buttons
             painter.setFont(self.arrow_font)
-            painter.setPen(Qt.black)
+            painter.setPen(Qt.darkGray)
 
-            # Get the button positions
+            # Get button positions
             up_rect = self.style().subControlRect(self.style().CC_SpinBox, option, self.style().SC_SpinBoxUp, self)
             down_rect = self.style().subControlRect(self.style().CC_SpinBox, option, self.style().SC_SpinBoxDown, self)
 
@@ -120,10 +110,12 @@ class ListConvosPage(QWidget):
 
         # Spin Box (Number Input Field)
         self.delivered_spinbox = CustomSpinBoxWidget()
-        self.delivered_spinbox.setMinimum(0)
+        self.delivered_spinbox.setMinimum(1)
         self.delivered_spinbox.setMaximum(1000)
-        self.delivered_spinbox.setValue(20)  # Default value is 20
+        self.delivered_spinbox.setValue(20)  # Default: Load 20 messages
+        self.delivered_spinbox.setFixedHeight(35)  # Slightly taller for a sleek look
         top_bar_layout.addWidget(self.delivered_spinbox)
+
 
         top_bar_layout.addStretch()  # Pushes delete button to the right
 
@@ -282,7 +274,8 @@ class ListConvosPage(QWidget):
         :param user: The username of the conversation selected.
         """
         self.Client.cur_convo = user
-        request = create_chat_history_request(self.Client.username, user)
+        num_msgs = self.delivered_spinbox.value()
+        request = create_chat_history_request(self.Client.username, user, num_msgs)
         self.Client.send_request(request)
 
     def connectClient(self):
