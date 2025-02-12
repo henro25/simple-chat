@@ -145,7 +145,6 @@ def handle_send_message(args):
 
     # Send the message to the recipient if they are online
     push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
-    # debug(active_clients)
     if recipient in active_clients:
         recipient_sock = active_clients[recipient]
         try:
