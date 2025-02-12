@@ -6,6 +6,7 @@ Date: 2024-2-6
 """
 
 import sys
+import hashlib
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QStackedWidget, QMessageBox,
     QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
@@ -107,7 +108,8 @@ class RegisterPage(QWidget):
         valid_username = (username) and (username.count(" ") < 1)
         password = self.passwordEdit.text().strip()
         if valid_username and password:
-            request = create_registration_request(username, password)
+            hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
+            request = create_registration_request(username, hashed_password)
             self.Client.send_request(request)
         elif not valid_username:
             QMessageBox.critical(self, "Registration Error", "Please enter username without white space.")
