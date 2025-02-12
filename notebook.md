@@ -282,6 +282,10 @@ Develop a messaging system using a client-server architecture with two different
   - **Format:** `1.0 REC_MSG [msg_id]`
   - **Example:** `1.0 REC_MSG 11`
 
+- **Set count:**
+  - **Format:** `1.0 SET_CNT [count]`
+  - **Example:** `1.0 SET_CNT 5`
+
 ---
 
 # 2/6/24

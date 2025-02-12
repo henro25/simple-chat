@@ -15,7 +15,8 @@ project_root = os.path.abspath(os.path.join(current_dir, '..'))
 server_dir = os.path.join(project_root, 'server')
 os.chdir(server_dir)
 
-from server import database, custom_protocol, json_protocol
+from server import database
+from server.protocols import custom_protocol, json_protocol
 from configs.config import *
 from server.utils import active_clients
 
@@ -163,6 +164,8 @@ def test_custom_process_message_dispatch():
 # ============================
 # Tests for JSON Protocol
 # ============================
+
+PROTOCOL_VERSION = "2.0"
 
 def test_json_wrap_and_parse_message():
     wrapped = json_protocol.wrap_message("TEST", ["data1", "data2"])
