@@ -210,7 +210,10 @@ class ListConvosPage(QWidget):
     def refresh(self, filtered):
         """refresh the UI"""
         self.updateUnreadCount()    # Update the unread messages label
-        self.populateConversations(filtered)  # Recreate the buttons
+        if filtered:
+            self.filterConversations(self.search_bar.text().strip())
+        else:
+            self.populateConversations()  # Recreate the buttons
     
     def updateUnreadCount(self):
         """Updates the label showing the total number of unread messages."""
