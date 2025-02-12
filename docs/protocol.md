@@ -14,6 +14,16 @@ Every message sent over the wire adheres to the following structure: `[protocol_
 
 ---
 
+## Protocol Versions
+
+- **Custom Protocol (String)**:  
+  Uses protocol version **1.0**. All messages following the custom protocol are sent as plain strings using the format detailed above.
+
+- **JSON Protocol**:  
+  Uses protocol version **2.0**. Messages are sent in JSON format as described below. The parsing is extremely similar to custom protocol.
+
+---
+
 ## Error Codes
 
 When an error occurs, the server uses specific numeric codes to represent common issues. Here are the error codes along with their meanings:
@@ -209,6 +219,26 @@ After a real-time message is delivered, the client sends an acknowledgment to co
 
 - **Format:** `1.0 REC_MSG [msg_id]`
 - **Example:** `1.0 REC_MSG 11`
+
+---
+
+## JSON Protocol Specification
+
+When using protocol version **2.0**, messages are sent as a JSON object immediately following the protocol number. The JSON object contains the following fields:
+
+- **opcode**: Specifies the type of message or command.
+- **data**: A list of words representing the message data.
+
+**Example JSON Protocol Message:**
+
+```json
+{
+  "opcode": "SOME_OPCODE",
+  "data": ["word1", "word2", "word3"]
+}
+```
+
+In practice, the transmitted message starts with the protocol version 2.0, followed by the JSON payload, which signifies that the JSON-based protocol is being used.
 
 ---
 
