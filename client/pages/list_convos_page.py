@@ -18,6 +18,7 @@ from configs.config import *
 class ListConvosPage(QWidget):
     # Signal emitted when a conversation is selected.
     conversationSelected = pyqtSignal(list)
+    accountDeleted = pyqtSignal()  # Signal to trigger main menu navigation
     
     def __init__(self, Client, parent=None):
         """
@@ -37,44 +38,74 @@ class ListConvosPage(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
-        
+
+        # Top bar layout (Title + Delete Button)
+        top_bar_layout = QHBoxLayout()
+
         # Title label: "Conversations"
         title_label = QLabel("Conversations")
         title_font = QFont("Helvetica", 24, QFont.Bold)
         title_label.setFont(title_font)
-        title_label.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(title_label)
-        
-        # Unread messages label: "n unread messages"
+
+        # Delete Account Button (Top Right)
+        self.delete_account_button = QPushButton("Delete Account")
+        self.delete_account_button.setFixedHeight(30)
+        self.delete_account_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                font-size: 12px;
+                padding: 5px 10px;
+                border-radius: 5px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+            QPushButton:pressed {
+                background-color: #a93226;
+            }
+        """)
+        self.delete_account_button.clicked.connect(lambda _: self.confirmDeleteAccount())
+
+        # Add title to the left, push delete button to the right
+        top_bar_layout.addWidget(title_label)
+        top_bar_layout.addStretch()  # Pushes button to the right
+        top_bar_layout.addWidget(self.delete_account_button)
+
+        # Add top bar layout to main layout
+        main_layout.addLayout(top_bar_layout)
+
+        # Unread messages label
         self.unread_label = QLabel()
         small_font = QFont("Helvetica", 12)
         self.unread_label.setFont(small_font)
         self.unread_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.unread_label)
         self.updateUnreadCount()
-        
+
         # Search bar for filtering conversations
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Search conversations...")
         self.search_bar.setFixedHeight(30)
         main_layout.addWidget(self.search_bar)
         self.search_bar.textChanged.connect(self.filterConversations)
-        
-        # Scroll area to hold the conversation buttons
+
+        # Scroll area to hold conversation buttons
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         main_layout.addWidget(self.scroll_area)
-        
-        # Container widget and layout for the conversation buttons
+
+        # Container for conversation buttons
         self.convo_container = QWidget()
         self.convo_layout = QVBoxLayout(self.convo_container)
         self.convo_layout.setSpacing(10)
         self.convo_layout.setContentsMargins(10, 10, 10, 10)
-        
         self.scroll_area.setWidget(self.convo_container)
-        
-        # Initially populate the conversation buttons
+
+        # Populate conversations
         self.populateConversations()
+
     
     def updateConversations(self, new_conversations):
         """Update the conversation list and refresh the UI."""
@@ -182,5 +213,32 @@ class ListConvosPage(QWidget):
             }
             """)
         # Use a lambda with default argument to capture the current user
-        button.clicked.connect(lambda checked, user=user: self.onConversationSelected(user))
-        self.convo_layout.addWidget(button)
+        button.clicked.connect(lambda _, user=user: self.onConversationSelected(user))
+        # If there are no existing conversations, add at the top
+        if self.convo_layout.count() == 0:
+            self.convo_layout.addWidget(button)
+        else:
+            self.convo_layout.insertWidget(self.convo_layout.count() - 1, button)
+
+
+    def confirmDeleteAccount(self):
+        """Shows a confirmation dialog before deleting the account."""
+        reply = QMessageBox.question(self, "Confirm Deletion",
+                                    "Are you sure you want to delete your account? This action cannot be undone.",
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        
+        if reply == QMessageBox.Yes:
+            self.deleteAccount()
+
+    def deleteAccount(self):
+        """Handles the account deletion process."""
+        # Send a request to the server to delete the account
+        request = create_delete_account_request(self.Client.username)
+        self.Client.send_request(request)
+
+    def successfulAccountDel(self):
+        """Called after received confirmation of account deletion"""
+        # Show a message that the account is deleted
+        QMessageBox.information(self, "Account Deleted", "Your account has been successfully deleted.")
+        # redirect back to main_menu
+        self.accountDeleted.emit()

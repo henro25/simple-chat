@@ -157,16 +157,19 @@ class MessagingPage(QWidget):
             self.Client.send_request(request)
     
     def displaySentMessage(self, msg_id):
-        self.chat_history.append(msg_id)
-        message = self.send_queue.pop(0)
-        self.message_info[msg_id] = (self.Client.username, message)
-        # Create a new message widget.
-        widget = ChatMessageWidget(f"<b>You:</b> {message}", message_id=msg_id, is_client=1)
-        widget.delete_button.clicked.connect(lambda _,  mid=msg_id: self.deleteMessage(mid))
-        self.chat_layout.addWidget(widget)
-        self.messageEdit.clear()
-        # Use a slight delay before scrolling so the widget is fully added.
-        QTimer.singleShot(50, self.scrollToBottom)
+        if msg_id == -1:
+            QMessageBox.critical(self, "Send Message Error", "The recipient of the message has deactivated their account.")
+        else:
+            self.chat_history.append(msg_id)
+            message = self.send_queue.pop(0)
+            self.message_info[msg_id] = (self.Client.username, message)
+            # Create a new message widget.
+            widget = ChatMessageWidget(f"<b>You:</b> {message}", message_id=msg_id, is_client=1)
+            widget.delete_button.clicked.connect(lambda _,  mid=msg_id: self.deleteMessage(mid))
+            self.chat_layout.addWidget(widget)
+            self.messageEdit.clear()
+            # Use a slight delay before scrolling so the widget is fully added.
+            QTimer.singleShot(50, self.scrollToBottom)
 
     def deleteMessage(self, msg_id):
         """Deletes the message and sends a request to server to delete the message from 

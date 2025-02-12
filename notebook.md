@@ -229,7 +229,7 @@ Develop a messaging system using a client-server architecture with two different
     - User this message is being sent to is NOT user1: `1.0 MSGS 12 0 2 2 hello bridget 3 it's henry ! 1 Hi! 1 2241 2 Hello Back`
 
 - **Client Sent Message Acknowledgement**
-  - **Format:** `1.0 ACK [msg ID]`
+  - **Format:** `1.0 ACK [msg ID -1 if recipient is deactivated]`
   - **Example:** `1.0 ACK 2241`
   
 - **Real-Time Send Message:**
@@ -243,6 +243,10 @@ Develop a messaging system using a client-server architecture with two different
 - **Real-Time Create Account:**
   - **Format:** `1.0 PUSH_USER [username]`
   - **Example:** `1.0 PUSH_USER henro`
+
+- **Delete Account Acknowledgement:**
+  - **Format:** `1.0 DEL_ACC`
+  - **Example:** `1.0 DEL_ACC`
 
 ### Client-to-Server Communication
 
@@ -512,16 +516,16 @@ Develop a messaging system using a client-server architecture with two different
   3. [] Complete back button functionality
   4. [] Delete Account
      1. [] Create button top right of list conversations page
-     2. [] Send delete request then go back to main menu
+     2. [] Create protol function for delete request
+     3. [] Send delete request then go back to main menu
   5. [] Support JSON
   **Server-side**:
   1. [DONE] Real time deletions to users who are online
      1. [DONE] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
   2. [] Handle updating unread count after delivery
   3. [] Delete Account
-     1. [] Create deactivated account db for deactivated users
+     1. [DONE] Modify accounts db for to keep track of deactibation of account
      2. [] Does not accept send message requests to deactivated username
-     3. [] Other clients cannot reuse usernames in 
   4. [] Support JSON
   **Changed Wire Protocol**:
   1. [DONE] Create real time create user push wire protocol

@@ -44,6 +44,12 @@ def create_login_request(username, password):
     """
     return f"1.0 LOGIN {username} {password}\n"
 
+def create_delete_account_request(username):
+    """
+    Construct a account deletion request message.
+    """
+    return f"1.0 DEL_ACC {username}\n"
+
 def deserialize_chat_conversations(chat_conversations):
     """
     Parse a server response of the form:
@@ -154,10 +160,16 @@ def handle_delete(args, Client):
 
 def handle_push_user(args, Client):
     new_user = args[0]
-    if Client.list_convos_page:
-        Client.list_convos_page.displayConvo(new_user)
+    Client.list_convos_page.chat_conversations.append((new_user, 0))
+    Client.list_convos_page.displayConvo(new_user)
 
-# def handle_error(page):
+def handle_delete_acc(Client):
+    Client.list_convos_page.successfulAccountDel()
+
+def handle_error(args, Client):
+    errno = int(args[0])
+    if errno == 1 or errno == 2 or errno == 3:
+        Client.login_page.displayLoginErrors(errno)
 
 def process_message(message, Client):
     """
@@ -180,7 +192,9 @@ def process_message(message, Client):
         handle_incoming_message(args, Client)
     elif command == "PUSH_USER":
         handle_push_user(args, Client)
-    # elif command == "ERROR":
-    #     handle_error()
+    elif command == "DEL_ACC":
+        handle_delete_acc(Client)
+    elif command == "ERROR":
+        handle_error(args, Client)
     else:
         print(f"1.0 ERROR {UNKNOWN_COMMAND}")

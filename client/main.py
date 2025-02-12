@@ -95,6 +95,12 @@ class ChatApp(QMainWindow):
                 self.stack.setCurrentWidget(self.listConvosPage)
             )
         )
+        self.listConvosPage.accountDeleted.connect(
+            lambda: (
+                self.Client.reset(),
+                self.stack.setCurrentWidget(self.mainMenu)
+            )
+        )
     
     def closeEvent(self, event):
         # Make sure to close the network connection when the app closes

@@ -32,7 +32,8 @@ def initialize_db():
         CREATE TABLE IF NOT EXISTS accounts (
             username TEXT PRIMARY KEY,
             password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deactivated INTEGER DEFAULT 0
         )
     """)
     
@@ -109,11 +110,11 @@ def verify_login(username, password):
     """
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT password_hash FROM accounts WHERE username = ?", (username,))
+    cur.execute("SELECT password_hash, deactivated FROM accounts WHERE username = ?", (username,))
     row = cur.fetchone()
     conn.close()
     
-    if row is None:
+    if row is None or row["deactivated"]:
         return False, USER_DNE
     
     stored_hash = row["password_hash"]
@@ -123,6 +124,53 @@ def verify_login(username, password):
         return True, SUCCESS
     else:
         return False, WRONG_PASS
+
+def verify_valid_recipient(recipient):
+    """
+    Verify that the recipient's account has not been deactivated
+
+    Parameters:
+      recipient (str): The username of recipient
+    
+    Returns:
+      int: (1 if valid recipient, 0 otherwise)
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT deactivated FROM accounts WHERE username = ?", (recipient,))
+    row = cur.fetchone()
+    conn.close()
+    
+    return abs(1-row["deactivated"])
+
+def deactivate_account(username):
+    """
+    Deactivate the given account
+
+    Parameters:
+      username (str): The username of the account to be deactivated
+    
+    Returns:
+      int: errno
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+     # Check if an entry exists for this account
+    cur.execute("SELECT deactivated FROM accounts WHERE username = ?", (username,))
+    row = cur.fetchone()
+    error_code = SUCCESS
+    if row:
+        # update the deactivated column of account
+        cur.execute("""
+            UPDATE accounts
+            SET deactivated = ? 
+            WHERE username = ?
+        """, (1, username))
+    else:
+        error_code = USER_DNE
+    conn.commit()
+    conn.close()
+    return error_code
 
 # ----------------------------
 # Query and Update Number of Unread Messages

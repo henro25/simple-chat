@@ -112,3 +112,7 @@ class LoginPage(QWidget):
             self.Client.send_request(request)
         else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
+    
+    def displayLoginErrors(self, errno):
+        """Displays login error"""
+        QMessageBox.critical(self, "Login Error", ERROR_MSGS[errno])

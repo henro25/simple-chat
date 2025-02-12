@@ -83,6 +83,11 @@ class Client:
             self.close()
             print("Client shutting down.")
 
+    def reset(self):
+        """Resets client information"""
+        self.username = None
+        self.outgoing_requests = []
+
     def close(self):
         """Close the client connection."""
         sel.unregister(self.sock)

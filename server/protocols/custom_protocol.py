@@ -123,21 +123,25 @@ def handle_send_message(args):
     Returns a response in the format:
         `1.0 ACK [msg ID]`
     """
+    msg_id = -1
     sender = args[0]
     recipient = args[1]
-    message = ' '.join(args[2: ])
-    msg_id = database.store_message(sender, recipient, message)
+    # check if recipient has deactivated their account
+    valid_recipient = database.verify_valid_recipient(recipient)
+    if valid_recipient:
+        message = ' '.join(args[2: ])
+        msg_id = database.store_message(sender, recipient, message)
 
-    # Send the message to the recipient if they are online
-    push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
-    # debug(active_clients)
-    if recipient in active_clients:
-        recipient_sock = active_clients[recipient]
-        try:
-            debug(f"Server: pushing message: {message}")
-            recipient_sock.sendall(push_message.encode('utf-8'))
-        except Exception as e:
-            print(f"Failed to push message to {recipient}: {e}")
+        # Send the message to the recipient if they are online
+        push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
+        # debug(active_clients)
+        if recipient in active_clients:
+            recipient_sock = active_clients[recipient]
+            try:
+                debug(f"Server: pushing message: {message}")
+                recipient_sock.sendall(push_message.encode('utf-8'))
+            except Exception as e:
+                print(f"Failed to push message to {recipient}: {e}")
 
     return f"1.0 ACK {msg_id}"
 
@@ -165,6 +169,23 @@ def handle_delete_messages(args):
         return response
     else:
         return f"1.0 ERROR {errno}"
+    
+def handle_delete_account(args):
+    """
+    Handle a client's request to delete their account.
+
+    Parameters: [username]
+
+    Returns a response in the format:
+        `1.0 DEL_ACC`
+    """
+    username = args[0]
+    errno = database.deactivate_account(username)
+    if errno==SUCCESS:
+        del active_clients[username]
+        return '1.0 DEL_ACC'
+    else:
+        return f"1.0 ERROR {errno}"
 
 def process_message(message):
     """
@@ -185,5 +206,7 @@ def process_message(message):
         return handle_send_message(args)
     elif command == "DEL_MSG":
         return handle_delete_messages(args)
+    elif command == "DEL_ACC":
+        return handle_delete_account(args)
     else:
         return f"1.0 ERROR {UNKNOWN_COMMAND}"
