@@ -102,6 +102,7 @@ class ListConvosPage(QWidget):
         self.convo_layout = QVBoxLayout(self.convo_container)
         self.convo_layout.setSpacing(10)
         self.convo_layout.setContentsMargins(10, 10, 10, 10)
+        self.convo_layout.setAlignment(Qt.AlignTop)
         self.scroll_area.setWidget(self.convo_container)
 
         # Populate conversations
@@ -158,7 +159,7 @@ class ListConvosPage(QWidget):
             self.displayConvo(user, self.num_unreads[user])
         
         # Add a stretch to push the buttons to the top of the scroll area
-        self.convo_layout.addStretch(1)
+        # self.convo_layout.addStretch(1)
     
     def filterConversations(self, text):
         """
