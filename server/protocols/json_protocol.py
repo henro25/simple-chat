@@ -161,9 +161,9 @@ def handle_delete_messages(data):
     Returns a response with data: [msg_id] on success.
     """
     msg_id = int(data[0])
-    recipient, errno = database.delete_message(msg_id)
+    recipient, sender, unread, errno = database.delete_message(id)
     if recipient:
-        response = wrap_message("DEL_MSG", [str(msg_id)])
+        response = wrap_message("DEL_MSG", [str(msg_id), [sender] [unread]])
         if recipient in active_clients:
             recipient_sock = active_clients[recipient]
             try:
