@@ -22,6 +22,8 @@ from .pages.messaging_page import MessagingPage
 from .pages.list_convos_page import ListConvosPage
 from .client import Client
 
+import configs.config as config
+
 class ChatApp(QMainWindow):
     def __init__(self):
         super(ChatApp, self).__init__()
@@ -68,7 +70,8 @@ class ChatApp(QMainWindow):
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.listConvosPage.setUsername(username),
-                self.stack.setCurrentWidget(self.listConvosPage)
+                self.stack.setCurrentWidget(self.listConvosPage),
+                self.setWindowTitle(f"{username}'s Conversations")
             )
         )
         self.registerPage.registerSuccessful.connect(
@@ -76,7 +79,8 @@ class ChatApp(QMainWindow):
                 self.resize(600, 400),
                 self.listConvosPage.updateConversations(convo_list),
                 self.listConvosPage.setUsername(username),
-                self.stack.setCurrentWidget(self.listConvosPage)
+                self.stack.setCurrentWidget(self.listConvosPage),
+                self.setWindowTitle(f"{username}'s Conversations")
             )
         )
         self.listConvosPage.conversationSelected.connect(
@@ -96,7 +100,7 @@ class ChatApp(QMainWindow):
         self.listConvosPage.accountDeleted.connect(
             lambda: (
                 self.Client.reset(),
-                self.stack.setCurrentWidget(self.mainMenu)
+                self.stack.setCurrentWidget(self.mainMenu),
             )
         )
     
@@ -106,6 +110,21 @@ class ChatApp(QMainWindow):
         event.accept()
 
 if __name__ == '__main__':
+    # Expecting three command-line arguments: protocol_version, server_ip, server_port.
+    if len(sys.argv) != 4:
+        print("Usage: python -m client.main <protocol_version> <server_ip> <server_port>")
+        sys.exit(1)
+
+    config.CUR_PROTO_VERSION = sys.argv[1]
+    SERVER_HOST = sys.argv[2]
+    try:
+        SERVER_PORT = int(sys.argv[3])
+    except ValueError:
+        print("Error: Server port must be an integer.")
+        sys.exit(1)
+
+    print(f"Starting ChatApp with protocol version: {config.CUR_PROTO_VERSION}, server IP: {SERVER_HOST}, server port: {SERVER_PORT}")
+
     app = QApplication(sys.argv)
 
     # Load the external stylesheet (if the file exists)
@@ -119,6 +138,7 @@ if __name__ == '__main__':
     except Exception as e:
         print("Could not load style sheet:", e)
 
+    # Pass the command-line parameters to ChatApp.
     window = ChatApp()
     window.show()
     timer = QTimer()

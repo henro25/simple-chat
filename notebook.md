@@ -518,26 +518,28 @@ Develop a messaging system using a client-server architecture with two different
      1. [] Request chat history update unread count (unread count also updated on messaging page)
      2. [] Real time message delivery update unread count
   3. [] Complete back button functionality
-  4. [] Support JSON
-  5. [] Handle offline unreads
-  6. [] Handle online unreads
-  7. [] Delete Account
+  4. [] Handle offline unreads
+  5. [] Handle online unreads
+  6. [DONE] Delete Account
      1. [DONE] Create button top right of list conversations page
      2. [DONE] Create protocol function for delete request
      3. [DONE] Send delete request then go back to main menu
-  8. [] Support JSON
-  9. [DONE] Change data structure in list_convos_page to support faster lookup for number of unreads
+  7. [DONE] Support JSON
+     1. [DONE] Allow the client to enter the perferred protocol version (1.0 for custom and 2.0 for JSON) in the command line
+  8. [DONE] Allow the client to enter the server host and port as arguments in the command line 
+  9. [DONE] Hashing password
   **Server-side**:
   1. [DONE] Real time deletions to users who are online
      1. [DONE] Modify protocol to handle deletion sending to push to recipient if they are online (same logic as real time)
   2. [] Handle updating unread count after delivery
-  3. [] Support JSON
-  4. [] Handle offline unreads
-  6. [] Handle online unreads
-  3. [DONE] Delete Account
+  3. [] Handle offline unreads
+  4. [] Handle online unreads
+  5. [DONE] Delete Account
      1. [DONE] Modify accounts db for to keep track of deactibation of account
      2. [DONE] Does not accept send message requests to deactivated username
-  4. [] Support JSON
+  6. [DONE] Support JSON
+     1. [DONE] Format: 2.0 {"opcode": "<COMMAND>", "data": ["arg1", "arg2", ...]}
+     2. [DONE] Added protocol_interface.py to client/protocols so that client can redirect the message they are sending to the server using the current protocol version
   **Changed Wire Protocol**:
   1. [DONE] Create real time create user push wire protocol
   2. [DONE] Create real time message delivery user side acknowledgement wire protocol

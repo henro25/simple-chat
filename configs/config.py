@@ -5,14 +5,12 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
-# Define host and port for the server.
-SERVER_HOST = 'localhost' # '127.0.0.1'
-# SERVER_HOST = '10.250.195.223' # "Henry's address"
-SERVER_PORT = 65432  # Choose an available TCP port
+# Default host and port for the server.
+SERVER_HOST = 'localhost'
+SERVER_PORT = 65432
 
-PROTOCOL = "custom"  # Options: "custom" or "json"
-CURRENT_VERSION = "1.0"
-SUPPORTED_VERSIONS = ["1.0"]
+CUR_PROTO_VERSION = "1.0"
+SUPPORTED_VERSIONS = ["1.0", "2.0"]
 
 DATABASE_NAME = "chat.db"
 

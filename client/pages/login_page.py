@@ -1,11 +1,12 @@
 """
-Module Name: main_menu.py
+Module Name: login_page.py
 Description: The login form page
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
 import sys
+import hashlib
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QStackedWidget, QMessageBox,
     QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
@@ -13,7 +14,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
-from client.protocols.custom_protocol import *
+from client.protocols.protocol_interface import *
 from configs.config import *
 
 class LoginPage(QWidget):
@@ -108,7 +109,8 @@ class LoginPage(QWidget):
         username = self.usernameEdit.text().strip()
         password = self.passwordEdit.text().strip()
         if username and password:
-            request = create_login_request(username, password)
+            hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
+            request = create_login_request(username, hashed_password)
             self.Client.send_request(request)
         else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")
