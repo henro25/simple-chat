@@ -95,10 +95,11 @@ def handle_get_chat_history(args):
             response += formatted_messages
             num_messages = 0
             formatted_messages = ""
+            cur_sender = message["sender"]
         num_messages += 1
         message_text = message["message"]
         id = message["id"]
-        num_words = message_text.count(" ")+1
+        num_words = message_text.count(" ") + 1
         cur_msg = f" {id} {num_words} {message_text}"
         formatted_messages += cur_msg
     formatted_messages = f" {num_messages}{formatted_messages}"
@@ -121,7 +122,7 @@ def handle_send_message(args):
 
     # Send the message to the recipient if they are online
     push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
-    print(active_clients)
+    # debug(active_clients)
     if recipient in active_clients:
         recipient_sock = active_clients[recipient]
         try:
