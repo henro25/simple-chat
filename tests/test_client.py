@@ -3,7 +3,7 @@ Module Name: test_client.py
 Description: Unit tests for the client module. These tests simulate receiving
              messages from the server (using both 1.0 and 2.0 protocols as well as
              unsupported versions), sending requests, closing the connection, and
-             running the client’s event loop.
+             running the client's event loop.
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
