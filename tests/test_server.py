@@ -17,7 +17,7 @@ os.chdir(server_dir)
 from server import database
 from configs.config import *
 
-# Fixture to set up a temporary test database.
+# Fixture to set up and tear down a temporary test database.
 @pytest.fixture(autouse=True)
 def setup_test_db():
     test_db = "test_chat.db"

@@ -20,9 +20,7 @@ from server.protocols import custom_protocol, json_protocol
 from configs.config import *
 from server.utils import active_clients
 
-# ------------------------------------------------------------------
-# Pytest fixture to set up and tear down a temporary test database.
-# ------------------------------------------------------------------
+# Fixture to set up and tear down a temporary test database.
 @pytest.fixture(autouse=True)
 def setup_database():
     test_db = "test_chat.db"
@@ -119,7 +117,7 @@ def test_custom_handle_get_chat_history():
     # Insert a message from alice to bob.
     msg_id = database.store_message("alice", "bob", "Hello Bob")
     # Request chat history (with oldest_msg_id == -1 to fetch recent messages).
-    args = ["alice", "bob", "-1"]
+    args = ["alice", "bob", "-1", "5"]
     response = custom_protocol.handle_get_chat_history(args)
     # The response should start with "1.0 MSGS" and include the message "Hello Bob".
     assert response.startswith("1.0 MSGS")
@@ -139,10 +137,11 @@ def test_custom_handle_send_message():
 
 def test_custom_handle_delete_messages():
     # Insert a message and then delete it.
-    msg_id = database.store_message("alice", "bob", "To be deleted")
+    sender = "alice"
+    msg_id = database.store_message(sender, "bob", "To be deleted")
     args = [str(msg_id)]
     response = custom_protocol.handle_delete_messages(args)
-    expected = f"1.0 DEL_MSG {msg_id}"
+    expected = f"1.0 DEL_MSG {msg_id} {sender} {1}"
     assert response == expected
 
 def test_custom_handle_delete_account():
@@ -219,7 +218,7 @@ def test_json_handle_login():
 def test_json_handle_get_chat_history():
     # Insert a message between alice and bob.
     msg_id = database.store_message("alice", "bob", "Hello JSON")
-    data = ["alice", "bob", "-1"]
+    data = ["alice", "bob", "-1", "5"]
     response = json_protocol.handle_get_chat_history(data)
     version, opcode, resp_data = json_protocol.parse_message(response)
     assert version == PROTOCOL_VERSION

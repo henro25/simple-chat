@@ -175,10 +175,15 @@ def handle_incoming_message(data, Client):
 def handle_chat_history(data, Client):
     """Handles chat history sent from server."""
     page_code = int(data[0])
+<<<<<<< Updated upstream
     num_unreads = int(data[1])
     chat_history = deserialize_chat_history(data[2:])
     updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_unreads)
     debug(f"page_code: {page_code}, updated_unread: {updated_unread}")
+=======
+    num_msgs_read, chat_history = deserialize_chat_history(data[1:])
+    updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_msgs_read)
+>>>>>>> Stashed changes
     if page_code==CONVO_PG:
         Client.list_convos_page.conversationSelected.emit(chat_history, updated_unread)
     else:

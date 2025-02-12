@@ -1,11 +1,14 @@
 """
 Module Name: test_num_unreads.py
-Description: Unit tests for get_conversations() and update_num_unread() to ensure num_unread_msgs table is updated correctly.
-Author: Henry Huang and Bridget Ma
-Date: 2024-2-7
+Description: Unit tests for get_conversations(), get_num_unread(), and mark_message_as_read()
+             to ensure that the messages table and unread counts are handled correctly.
+Author: Henry Huang and Bridget Ma (extended by ChatGPT)
+Date: 2024-2-7 (extended 2025-02-12)
 """
 
 import os
+import random
+import time
 import pytest
 
 # Change test directory to the server directory so that tests run with the proper configuration.
@@ -17,7 +20,7 @@ os.chdir(server_dir)
 from server import database
 from configs.config import *
 
-# Use a pytest fixture to set up and tear down a temporary test database.
+# Fixture to set up and tear down a temporary test database.
 @pytest.fixture(autouse=True)
 def setup_database():
     test_db = "test_chat.db"
@@ -28,11 +31,10 @@ def setup_database():
     if os.path.exists(test_db):
         os.remove(test_db)
     
-    # Initialize the database (which creates both the accounts and num_unread_msgs tables).
+    # Initialize the database (this should create the accounts and messages tables).
     database.initialize_db()
     
-    # Pre-populate the accounts table for testing get_conversations.
-    # (This list should match the accounts you expect in your tests.)
+    # Pre-populate the accounts table for testing.
     accounts = [
         ("alice", "hash1"),
         ("bob", "hash2"),
@@ -42,164 +44,184 @@ def setup_database():
     for username, pwd in accounts:
         database.register_account(username, pwd)
     
-    yield  # run the tests
+    yield  # Run the tests.
     
     # Teardown: Remove the test database after tests are finished.
     if os.path.exists(test_db):
         os.remove(test_db)
-        
-# ----------------------------
+
+# ===============================
 # Tests for get_num_unread
-# ----------------------------
-        
+# ===============================
+
 def test_get_num_unread_no_entries():
     """
-    Test that get_num_unread() returns 0 when there are no unread messages for the recipient.
+    Test that get_num_unread() returns 0 when there are no messages.
     """
     recipient = "alice"
-    # Since no unread messages have been added, the total should be 0.
+    # No messages inserted, so total unread should be 0.
     unread_count = database.get_num_unread(recipient)
-    print(unread_count)
-    assert unread_count == 0, "Expected 0 unread messages when no entries exist."
+    assert unread_count == 0, "Expected 0 unread messages when no messages exist."
 
 def test_get_num_unread_with_multiple_senders():
     """
-    Test that get_num_unread() returns the correct sum when there are unread messages from multiple senders.
+    Test that get_num_unread() returns the correct sum when there are messages from multiple senders.
     """
     recipient = "alice"
+    # Simulate 2 messages from bob and 3 messages from charlie.
+    for _ in range(2):
+        database.store_message("bob", recipient, "Hello from bob")
+    for _ in range(3):
+        database.store_message("charlie", recipient, "Hello from charlie")
     
-    # Insert unread messages from different senders.
-    database.update_num_unread(recipient, "bob", 2)
-    database.update_num_unread(recipient, "charlie", 3)
-    
-    # The total unread should be 2 + 3 = 5.
+    # get_num_unread() should sum the unread messages.
     unread_count = database.get_num_unread(recipient)
     assert unread_count == 5, f"Expected 5 unread messages, got {unread_count}"
 
-def test_get_num_unread_after_updates():
+def test_get_num_unread_after_multiple_messages_same_sender():
     """
-    Test that get_num_unread() reflects the updated total after multiple updates to the same conversation.
+    Test that get_num_unread() returns the correct count when multiple messages come from the same sender.
     """
     recipient = "alice"
     sender = "david"
+    # Simulate 1 message and then 4 more messages from david.
+    database.store_message(sender, recipient, "Message 1")
+    for _ in range(4):
+        database.store_message(sender, recipient, "Another message")
     
-    # Insert an entry and then update it.
-    database.update_num_unread(recipient, sender, 1)
-    database.update_num_unread(recipient, sender, 4)
-    
-    # The total unread for recipient 'alice' from 'david' should now be 1 + 4 = 5.
     unread_count = database.get_num_unread(recipient)
     assert unread_count == 5, f"Expected 5 unread messages, got {unread_count}"
 
-# ----------------------------
-# Tests for update_num_unread
-# ----------------------------
-
-def test_update_num_unread_insert():
+def test_mark_message_as_read():
     """
-    Test that update_num_unread() correctly inserts a new row when none exists.
+    Test that marking a message as read properly reduces the unread count.
     """
     recipient = "alice"
     sender = "bob"
     
-    # Call the function to insert a record with 3 unread messages.
-    database.update_num_unread(recipient, sender, 3)
-
-    # Verify by querying the database directly.
-    conn = database.get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT unread_count FROM num_unread_msgs 
-        WHERE recipient = ? AND sender = ?
-    """, (recipient, sender))
-    row = cur.fetchone()
-    conn.close()
+    # Insert one message from bob to alice.
+    msg_id = database.store_message(sender, recipient, "Please read me")
+    # Unread count should be 1.
+    assert database.get_num_unread(recipient) == 1, "Expected unread count of 1."
     
-    assert row is not None, "A row should have been inserted for the conversation."
-    assert row["unread_count"] == 3, "Unread count should be 3."
+    # Mark the message as read.
+    database.mark_message_as_read(msg_id)
+    # Now the unread count should be 0.
+    assert database.get_num_unread(recipient) == 0, "Expected unread count of 0 after marking as read."
 
-def test_update_num_unread_update():
+def test_mark_message_as_read_nonexistent():
     """
-    Test that update_num_unread() updates an existing row by adding the new unread count.
+    Test that attempting to mark a nonexistent message as read does not cause an error.
+    """
+    # Try marking a message id that doesn't exist.
+    try:
+        database.mark_message_as_read(9999)
+    except Exception as e:
+        pytest.fail(f"mark_message_as_read() raised an exception on a non-existent message: {e}")
+
+# ====================================
+# Randomized and Edge Case Tests
+# ====================================
+
+def test_get_num_unread_random():
+    """
+    Randomly insert messages from various senders to a recipient and randomly mark some as read.
+    Verify that get_num_unread() returns the expected sum.
     """
     recipient = "alice"
-    sender = "charlie"
-    
-    # First, insert an entry with 2 unread messages.
-    database.update_num_unread(recipient, sender, 2)
-    
-    # Now update by adding 4 more unread messages.
-    database.update_num_unread(recipient, sender, 4)
-    
-    conn = database.get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT unread_count FROM num_unread_msgs 
-        WHERE recipient = ? AND sender = ?
-    """, (recipient, sender))
-    row = cur.fetchone()
-    conn.close()
-    
-    assert row is not None, "A row should exist for the conversation."
-    assert row["unread_count"] == 6, "Unread count should update to 6 (2 + 4)."
+    senders = ["bob", "charlie", "david"]
+    expected_unread = {sender: 0 for sender in senders}
+    # Keep a record of message ids per sender.
+    message_ids = {sender: [] for sender in senders}
+    iterations = 20
 
-# ----------------------------
-# Tests for get_conversations
-# ----------------------------
+    # Randomly insert between 0 and 5 messages per iteration.
+    for _ in range(iterations):
+        sender = random.choice(senders)
+        count = random.randint(0, 5)
+        for _ in range(count):
+            msg_id = database.store_message(sender, recipient, f"Random message from {sender}")
+            message_ids[sender].append(msg_id)
+            expected_unread[sender] += 1
+        # Sleep a tiny bit to ensure different timestamps.
+        time.sleep(0.01)
+    
+    # Now, randomly mark some messages as read.
+    for sender in senders:
+        # With 50% chance mark each message as read.
+        for msg_id in message_ids[sender]:
+            if random.random() < 0.5:
+                database.mark_message_as_read(msg_id)
+                expected_unread[sender] -= 1
+
+    total_expected = sum(expected_unread.values())
+    unread_count = database.get_num_unread(recipient)
+    assert unread_count == total_expected, f"Expected total unread {total_expected}, got {unread_count}"
 
 def test_get_conversations_with_unread():
     """
     Test that get_conversations() returns:
-      1. Unread conversations sorted by last_timestamp descending.
-      2. Then, the rest of the accounts (with 0 unread messages) sorted alphabetically.
+      1. Unread conversations (from messages table) sorted by last message timestamp descending.
+      2. Then, all other accounts (with 0 unread) sorted alphabetically.
     """
     recipient = "alice"
-
-    # Insert two unread entries for recipient "alice":
-    # For conversation with "david" and "charlie".
-    database.update_num_unread(recipient, "david", 2)
-    database.update_num_unread(recipient, "charlie", 5)
+    # Simulate unread messages from 'david' and 'charlie'.
+    # Insert 2 messages from david and 5 from charlie.
+    for _ in range(2):
+        database.store_message("david", recipient, "Message from david")
+    for _ in range(5):
+        database.store_message("charlie", recipient, "Message from charlie")
     
-    # To simulate different timestamps, update "david" so its timestamp is more recent.
+    # To simulate different timestamps, update one sender's messages so that "david" appears more recent.
     conn = database.get_db_connection()
     cur = conn.cursor()
+    # Update the latest message from david by setting its timestamp 1 minute in the future.
     cur.execute("""
-        UPDATE num_unread_msgs 
-        SET last_timestamp = datetime('now', '+1 minute') 
-        WHERE recipient = ? AND sender = ?
-    """, (recipient, "david"))
+        UPDATE messages 
+        SET timestamp = datetime('now', '+1 minute')
+        WHERE id = (SELECT MAX(id) FROM messages WHERE sender = ? AND recipient = ?)
+    """, ("david", recipient))
     conn.commit()
     conn.close()
-
-    # When alice requests her conversations:
-    conversations = database.get_conversations(recipient)
     
-    # Expected ordering:
-    # - Unread conversations first, ordered by last_timestamp descending:
-    #   "david" (2 unread, more recent) then "charlie" (5 unread).
-    # - Then all remaining accounts (except alice, david, and charlie) sorted alphabetically.
-    # Given our accounts: ("alice", "bob", "charlie", "david"), the remaining account is "bob".
+    # Now get conversations for alice.
+    conversations = database.get_conversations(recipient)
+    # The expected ordering:
+    #   * Unread conversations first: "david" (with 2 unread, more recent) then "charlie" (with 5 unread).
+    #   * Then remaining account "bob" (0 unread).
     expected = [
         ("david", 2),
         ("charlie", 5),
         ("bob", 0)
     ]
-    assert conversations == expected
+    assert conversations == expected, f"Expected conversations {expected}, got {conversations}"
 
 def test_get_conversations_with_no_previous_messages():
     """
-    Test that get_conversations() returns all accounts (except the recipient)
-    with an unread count of 0 when the recipient has no previous messages with anyone.
+    Test that get_conversations() returns all accounts (except the recipient) with 0 unread messages
+    when no messages have been sent.
     """
     recipient = "alice"
     conversations = database.get_conversations(recipient)
-    
-    # Expected: All accounts except "alice", sorted alphabetically,
-    # with unread count of 0.
-    # Given our accounts ("alice", "bob", "charlie", "david"):
+    # Expected: All accounts except "alice", sorted alphabetically, all with unread count 0.
     expected = [
         ("bob", 0),
         ("charlie", 0),
         ("david", 0)
     ]
-    assert conversations == expected
+    assert conversations == expected, f"Expected conversations {expected}, got {conversations}"
+
+def test_get_num_unread_edge_case_read_messages():
+    """
+    Insert messages that are already marked as read and verify that they are not counted.
+    """
+    recipient = "alice"
+    sender = "bob"
+    # Insert a message.
+    msg_id = database.store_message(sender, recipient, "Already read message")
+    # Immediately mark it as read.
+    database.mark_message_as_read(msg_id)
+    
+    # get_num_unread should not count this message.
+    unread_count = database.get_num_unread(recipient)
+    assert unread_count == 0, "Expected unread count of 0 for messages that are already read."

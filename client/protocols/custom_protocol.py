@@ -225,3 +225,4 @@ def process_message(message, Client):
         handle_error(args, Client)
     else:
         print(f"1.0 ERROR {UNKNOWN_COMMAND}")
+        
