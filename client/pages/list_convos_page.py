@@ -8,8 +8,8 @@ Date: 2024-02-06
 import sys
 import fnmatch  # For wildcard matching in filtering
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QHBoxLayout, QMessageBox, QSpinBox, QToolButton, QStyle
+    QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
+    QScrollArea, QHBoxLayout, QMessageBox, QSpinBox, QToolButton
 )
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer

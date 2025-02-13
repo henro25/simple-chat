@@ -5,11 +5,7 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
-import sys
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QStackedWidget,
-    QVBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QSpacerItem, QSizePolicy
-)
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 

@@ -9,7 +9,6 @@ from server import database
 from configs.config import *
 from server.utils import active_clients
 
-
 def parse_message(message):
     """
     Parse a protocol message into version, command, and arguments.

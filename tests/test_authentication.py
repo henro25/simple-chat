@@ -6,7 +6,6 @@ Date: 2024-2-7
 """
 
 import os
-import sys
 import pytest
 
 # Change test directory to the server directory to run tests with config

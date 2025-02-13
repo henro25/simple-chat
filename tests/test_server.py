@@ -12,7 +12,6 @@ Date: 2024-2-6
 import json
 import os
 import selectors
-import socket
 import types
 import pytest
 
@@ -57,7 +56,9 @@ class DummySocket:
         self.recv_data = recv_data
         self.sent_data = b""
         self.closed = False
-        
+        # For selector compatibility, assign a dummy fileno.
+        self._fileno = 10000
+
     def fileno(self):
         return self._fileno
 
@@ -93,10 +94,75 @@ def clear_active_clients_and_selector():
     active_clients.clear()
 
 # =========================
-# Additional Server Tests
+# Additional Custom Protocol Tests
 # =========================
 
-# --- Tests for the CREATE command (account registration) ---
+def test_custom_parse_message_valid():
+    message = "1.0 LOGIN alice hash1"
+    version, command, args = custom_protocol.parse_message(message)
+    assert version == "1.0"
+    assert command == "LOGIN"
+    assert args == ["alice", "hash1"]
+
+def test_custom_parse_message_invalid():
+    message = "1.0"
+    version, command, args = custom_protocol.parse_message(message)
+    assert version is None
+    assert command is None
+    assert args == []
+
+def test_custom_login_failure():
+    # Simulate a login with the wrong password.
+    # "alice" is registered with "hash1", so using "wrong_hash" should fail.
+    msg = "1.0 LOGIN alice wrong_hash\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 10000), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    # Expect an error response.
+    assert response.startswith("1.0 ERROR"), "LOGIN failure should return an error response due to wrong password"
+
+def test_custom_unknown_command():
+    # Test that an unrecognized command returns an error.
+    msg = "1.0 FOOBAR arg1 arg2\n".encode("utf-8")
+    dummy_sock = DummySocket(recv_data=msg)
+    key = types.SimpleNamespace(
+        fileobj=dummy_sock,
+        data=types.SimpleNamespace(addr=("127.0.0.1", 10001), inb=b"", outb=b"", username=None)
+    )
+    server.service_connection(key, selectors.EVENT_READ)
+    response = key.data.outb.decode("utf-8")
+    assert response.startswith("1.0 ERROR"), "Unknown command should return an error response"
+
+def test_custom_get_conversations_no_messages():
+    # Test get_conversations for a user with no messages.
+    # Pre-populated accounts are: alice, bob, charlie, david.
+    convos = server.database.get_conversations("alice")
+    expected = [("bob", 0), ("charlie", 0), ("david", 0)]
+    assert convos == expected, f"Expected {expected}, got {convos}"
+
+def test_mark_message_as_read():
+    # Test that marking a message as read updates the unread count.
+    # Store a message from alice to bob.
+    msg_id = server.database.store_message("alice", "bob", "Test message")
+    unread_before = server.database.get_num_unread("bob")
+    server.database.mark_message_as_read(msg_id)
+    unread_after = server.database.get_num_unread("bob")
+    # Since one unread message was marked as read, unread_after should be unread_before - 1 (or 0 if it was 1)
+    expected = max(0, unread_before - 1)
+    assert unread_after == expected, "Unread count should decrease by 1 after marking a message as read"
+
+def test_verify_valid_recipient_deactivated():
+    # Test that a deactivated account is not a valid recipient.
+    # Deactivate "david" and then verify.
+    server.database.deactivate_account("david")
+    valid = server.database.verify_valid_recipient("david")
+    assert valid == 0, "Deactivated account should not be a valid recipient"
+
+# --- (Existing tests for CREATE, SEND, READ, DEL_MSG, and DEL_ACC follow below) ---
 
 def test_service_connection_create_success_custom():
     # "newuser" is not pre-registered so registration should succeed.
@@ -157,8 +223,6 @@ def test_service_connection_create_failure_json():
     version, opcode, data_resp = json_protocol.parse_message(response)
     assert opcode == "ERROR", "JSON CREATE failure should return an ERROR response"
 
-# --- Tests for the SEND message command ---
-
 def test_service_connection_send_message_success_custom():
     # Set up a dummy socket for the recipient "bob" to capture PUSH_MSG.
     recipient_sock = DummySocket()
@@ -196,8 +260,6 @@ def test_service_connection_send_message_success_json():
     # Check that "bob" received a PUSH_MSG.
     assert b"PUSH_MSG" in recipient_sock.sent_data, "Recipient 'bob' should receive a PUSH_MSG in JSON send"
 
-# --- Tests for the READ chat history command ---
-
 def test_service_connection_read_chat_history_custom():
     # Pre-store a message from "bob" to "alice".
     server.database.store_message("bob", "alice", "Chat message")
@@ -230,8 +292,6 @@ def test_service_connection_read_chat_history_json():
     # Ensure the response data contains the chat message.
     assert any("JSON chat message" in s for s in data_resp), "Response should include the chat message text"
 
-# --- Tests for the DEL_MSG (delete message) command ---
-
 def test_service_connection_delete_message_success_custom():
     # Pre-store a message from "alice" to "bob".
     msg_id = server.database.store_message("alice", "bob", "To be deleted")
@@ -257,8 +317,6 @@ def test_service_connection_delete_message_failure_custom():
     server.service_connection(key, selectors.EVENT_READ)
     response = key.data.outb.decode("utf-8")
     assert response.startswith("1.0 ERROR"), "DEL_MSG failure should return an ERROR response"
-
-# --- Tests for the DEL_ACC (deactivate account) command ---
 
 def test_service_connection_deactivate_account_success_custom(monkeypatch):
     # Simulate that "alice" is online.

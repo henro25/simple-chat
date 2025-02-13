@@ -8,7 +8,6 @@ Date: 2024-2-9
 
 import os
 import pytest
-import sqlite3
 
 # Change test directory to the server directory so that tests run with the proper configuration.
 current_dir = os.path.dirname(os.path.abspath(__file__))
