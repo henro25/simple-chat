@@ -514,12 +514,12 @@ Develop a messaging system using a client-server architecture with two different
      1. [DONE] User listens for incoming deletion messages
      2. [DONE] Add functionality and logic to handle incoming deletions and only notify messaging page to display if it is correct sender
      3. [DONE] Messaging page update chat window when deletion arrives
-  2. [] Unread updates
-     1. [] Request chat history update unread count (unread count also updated on messaging page)
-     2. [] Real time message delivery update unread count
-  3. [] Complete back button functionality
-  4. [] Handle offline unreads
-  5. [] Handle online unreads
+  2. [DONE] Unread updates
+     1. [DONE] Request chat history update unread count (unread count also updated on messaging page)
+     2. [DONE] Real time message delivery update unread count
+  3. [DONE] Complete back button functionality
+  4. [DONE] Handle offline unreads
+  5. [DONE] Handle online unreads
   6. [DONE] Delete Account
      1. [DONE] Create button top right of list conversations page
      2. [DONE] Create protocol function for delete request
@@ -558,6 +558,35 @@ Develop a messaging system using a client-server architecture with two different
 
 ## We found that sending the custom protocol is quicker since we needed to send less information (no brackets or extra list delimeters), but the JSON protocol is easier to parse!
 
----
+## Implemented Benchmarking for Message Size and Message Efficiency
 
-*This document is a living record. Future updates and refinements will be made as the project evolves.*
+### Overview
+We benchmarked two communication protocols—**custom** and **JSON**—to evaluate differences in message size and efficiency. Our hypothesis was that the custom protocol would outperform JSON by reducing unnecessary character overhead and omitting redundant data.
+
+### Hypothesis
+- **Custom Protocol Efficiency:** By avoiding extra characters (e.g., `{`, `}`, `[`, `]`, spaces, and commas), the custom protocol should transmit smaller, faster messages.
+- **Eliminating Redundancy:** With the custom approach, predefined field meanings mean that keys (as found in JSON dictionaries) are not transmitted, further reducing message size.
+
+### Implementation Details
+- **Custom Protocol:**
+  - **Pros:** 
+    - Reduced message size due to fewer delimiters and exclusion of key names.
+    - Faster processing, as there's less data to parse.
+  - **Cons:** 
+    - Rigid parsing requirements: Each opcode must be precisely caught, redirected, and parsed.
+    - Increased risk of errors when modifying the code to support new functionalities.
+  
+- **JSON Protocol:**
+  - **Pros:** 
+    - Self-descriptive messages that include keys, making the protocol more robust to changes.
+  - **Cons:** 
+    - Larger message size due to the inclusion of extra delimiters and field keys.
+    - Slightly slower due to the additional parsing overhead.
+
+### Observations and Trade-offs
+- **Performance:** The custom protocol showed promise in reducing message size and potentially speeding up transmission. Experimental results are available in the `test/benchmarking_protocols.ipynb` notebook. The graphs shown at the end of the notebook help validate our hypothesis and provide a visual confirmation of the performance differences between the two protocols.
+- **Maintenance:** The tight coupling of opcode handling in the custom protocol has led to occasional errors, particularly when expanding functionality.
+- **Flexibility vs. Efficiency:** While JSON offers greater flexibility with its self-descriptive structure, it does so at the cost of efficiency.
+
+### Conclusion
+Our benchmarking suggests that the custom protocol can provide significant performance improvements by reducing message size. However, these benefits come with increased maintenance challenges and potential parsing errors. Moving forward, we will focus on enhancing error handling in the custom protocol and exploring hybrid solutions that might balance performance with flexibility.

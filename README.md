@@ -2,10 +2,11 @@
 A simple, client-server chat application that allows users to send and receive text messages.
 
 # Setting Up
-1. Create a virutal environment in the simple-chat root directory:
-   1. `python3.10 -m venv venv`
+1. Download this repo by running `git clone https://github.com/henro25/simple-chat.git` in terminal
+2. Create a virutal environment in the simple-chat root directory:
+   1. `python -m venv venv`
    2. `source venv/bin/activate`
-2. Run `pip install -r requirements.txt` to download required libraries
+3. Run `pip install -r requirements.txt` to download required libraries
 
 # Running the client and server
 
