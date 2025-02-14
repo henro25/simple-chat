@@ -7,6 +7,7 @@ A simple, client-server chat application that allows users to send and receive t
    1. `python -m venv venv`
    2. `source venv/bin/activate`
 3. Run `pip install -r requirements.txt` to download required libraries
+4. To use gRPC as the communication protocol, run `python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. chat_service.proto`
 
 # Running the client and server
 

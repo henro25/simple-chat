@@ -1,8 +1,7 @@
 """
 Module Name: protocol_interface.py
 Description: Redirects protocol function calls to either the custom protocol or the JSON protocol
-             based on the CUR_PROTO_VERSION value. If the current protocol version is not supported,
-             an error message is returned.
+             based on the CUR_PROTO_VERSION value. If the current protocol version is not supported, an error message is returned.
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-12
 """
@@ -11,7 +10,8 @@ import configs.config as config
 import client.protocols.custom_protocol as custom_protocol
 import client.protocols.json_protocol as json_protocol
 
-from configs.config import debug
+# gRPC import
+import chat_service_pb2
 
 def unsupported_error():
     return f"{config.CUR_PROTO_VERSION} ERROR {config.UNSUPPORTED_VERSION}"
@@ -38,6 +38,8 @@ def create_login_request(username, password):
         return custom_protocol.create_login_request(username, password)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_login_request(username, password)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.LoginRequest(username=username, password=password)
     else:
         return unsupported_error()
 

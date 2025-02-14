@@ -9,36 +9,26 @@ import selectors
 import socket
 import types
 from . import database  # database module for registration/login
-
-import server.protocols.custom_protocol as custom_protocol
+from server.utils import active_clients
 from configs.config import *
-from server.utils import active_clients
-
-# Create a default selector
-sel = selectors.DefaultSelector()
-
-def accept_wrapper(sock):
-    """Accept new connections and register them."""
-    conn, addr = sock.accept()
-    print(f"Accepted connection from {addr}")
-    conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"", username=None)
-    events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    sel.register(conn, events, data=data)
-
-import selectors
-import socket
-import types
-from . import database  # database module for registration/login
-from server.utils import active_clients
-from configs.config import UNSUPPORTED_VERSION, SERVER_HOST, SERVER_PORT, debug
 
 # Import both protocol modules.
 import server.protocols.custom_protocol as custom_protocol
 import server.protocols.json_protocol as json_protocol
 
-sel = selectors.DefaultSelector()
+# gRPC imports
+import threading
+import chat_service_pb2
+import chat_service_pb2_grpc
+from concurrent import futures
+import grpc
 
+sel = selectors.DefaultSelector()
+actual_address = None
+
+# -----------------------------
+# Socket server setup
+# -----------------------------
 def accept_wrapper(sock):
     """Accept new connections and register them."""
     conn, addr = sock.accept()
@@ -132,6 +122,50 @@ def get_local_ip():
         s.close()
     return ip
 
+# -----------------------------
+# gRPC server setup
+# -----------------------------
+class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
+    def Login(self, request, context):
+        
+        success, errno = database.verify_login(request.username, request.password)
+        if request.username in active_clients:
+            # TODO: handle later!!
+            return f"1.0 ERROR {USER_LOGGED_ON}"
+        if success:
+            user_unreads = [
+                chat_service_pb2.UserUnread(username=user, unread_count=unread)
+                for user, unread in database.get_conversations(request.username)
+            ]
+
+            debug(f"User {request.username} logged in successfully.")
+            return chat_service_pb2.LoginResponse(
+                success=True, 
+                error_msg=errno,
+                page_code=LGN_PG,
+                client_username=request.username,
+                user_unreads=user_unreads)
+        else:
+            debug(f"User {request.username} failed to log in: {errno}")
+            return chat_service_pb2.LoginResponse(
+                success=False,
+                error_msg=errno,
+                page_code=0,
+                client_username=request.username,
+                user_unreads=[]
+            )
+
+def serve():
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    chat_service_pb2_grpc.add_ChatServiceServicer_to_server(MyChatService(), server)
+    # server.add_insecure_port('[::]:50051')
+    server.add_insecure_port("{}:{}".format(actual_address[0], actual_address[1] + 1))
+    server.start()
+    server.wait_for_termination()
+
+# -----------------------------
+# Main server entry point
+# -----------------------------
 if __name__ == "__main__":
     # Initialize the database (create tables, etc.)
     database.initialize_db()
@@ -148,6 +182,10 @@ if __name__ == "__main__":
     print("Listening on", actual_address)
     lsock.setblocking(False)
     sel.register(lsock, selectors.EVENT_READ, data=None)
+    
+    # Start the gRPC server in a separate thread.
+    grpc_thread = threading.Thread(target=serve, daemon=True)
+    grpc_thread.start()
 
     try:
         while True:

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package chat;
+
+service ChatService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+// Request/Response for logging in
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+// Define a message for a user's unread count.
+message UserUnread {
+  string username = 1;
+  int32 unread_count = 2;
+}
+
+// Updated LoginResponse to include a page code, the client username,
+// and a list of users with their unread counts.
+message LoginResponse {
+  bool success = 1;
+  int32 error_msg = 2;
+  int32 page_code = 3;              // e.g., 10
+  string client_username = 4;     // e.g., "henro"
+  repeated UserUnread user_unreads = 5; // List of other users and their unread counts.
+}

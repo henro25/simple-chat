@@ -13,17 +13,22 @@ import sys
 import socket
 import selectors
 
-from configs.config import *
+import configs.config as config
 
 # Import both protocol modules.
 import client.protocols.custom_protocol as custom_protocol
 import client.protocols.json_protocol as json_protocol
 
+# gRPC imports
+import grpc
+import chat_service_pb2
+import chat_service_pb2_grpc
+
 # Create a default selector
 sel = selectors.DefaultSelector()
 
 class Client:
-    def __init__(self, host=SERVER_HOST, port=SERVER_PORT):
+    def __init__(self, host=config.SERVER_HOST, port=config.SERVER_PORT):
         self.server_address = (host, port)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setblocking(False)  # Set socket to non-blocking mode
@@ -35,13 +40,15 @@ class Client:
         self.cur_convo = None       # Store username of other user if client on messaging page
         self.registered = 0         # Stores state of socket
         self.inb = ""  # Buffer to hold incoming data
+        self.channel = grpc.insecure_channel(f'{config.SERVER_HOST}:{config.SERVER_PORT + 1}') # gRPC channel
+        self.stub = chat_service_pb2_grpc.ChatServiceStub(self.channel) # gRPC stub
         try:
             self.sock.connect(self.server_address)
-            debug(f"Client: connected to server at {self.server_address}")
+            config.debug(f"Client: connected to server at {self.server_address}")
         except BlockingIOError:
             pass
         except Exception as e:
-            debug(f"Client: failed to connect to server at {self.server_address}: {e}")
+            config.debug(f"Client: failed to connect to server at {self.server_address}: {e}")
             raise
 
     def service_connection(self, key, mask):
@@ -61,21 +68,22 @@ class Client:
                     # Split off one complete message and update the buffer with the remainder.
                     message, self.inb = self.inb.split("\n", 1)
                     if message:  # Only process if non-empty
-                        debug(f"Received server response: {message.strip()}")
+                        config.debug(f"Received server response: {message.strip()}")
                         # Check the protocol version and dispatch accordingly.
                         if message.startswith("1.0"):
                             custom_protocol.process_message(message, self)
                         elif message.startswith("2.0"):
                             json_protocol.process_message(message, self)
                         else:
-                            error_response = json_protocol.wrap_message("ERROR", [str(UNSUPPORTED_VERSION)])
-                            debug(f"Unsupported protocol version received: {message.strip()}")
+                            error_response = json_protocol.wrap_message("ERROR", [str(config.UNSUPPORTED_VERSION)])
+                            config.debug(f"Unsupported protocol version received: {message.strip()}")
             else:
                 # Handle the case where recv() returns an empty byte string (connection closed).
                 pass
         except BlockingIOError:
             pass
         except Exception as e:
+            config.debug(f"Current IP address and port: {self.server_address}")
             print(f"Error receiving message: {e}")
             sys.exit(1)
 
@@ -85,7 +93,28 @@ class Client:
         Instead of immediately waiting for a response, we store outgoing data and
         let the selector notify us when we can send it.
         """
-        debug(f"Client: sending request: {request}")
+        if config.CUR_PROTO_VERSION == "3.0":
+            # gRPC call
+            response = self.stub.Login(request)
+            config.debug(f"gRPC response: \n{response}")
+            
+            # Access the structured fields directly.
+            page_code = response.page_code
+            client_username = response.client_username
+
+            # Build a conversation list (or user list) from the repeated UserUnread field.
+            convo_list = [(user.username, user.unread_count) for user in response.user_unreads]
+
+            # Use page code to update the UI or signal success.
+            if page_code == config.REG_PG:
+                self.register_page.registerSuccessful.emit(client_username, convo_list)
+            elif page_code == config.LGN_PG:
+                self.login_page.loginSuccessful.emit(client_username, convo_list)
+            
+            return
+        
+        # For other versions, we send the request directly via sockets
+        config.debug(f"Client: sending request: {request}")
         try:
             self.sock.sendall(request.encode('utf-8'))
         except Exception as e:

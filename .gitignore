@@ -1,2 +1,5 @@
 /venv
 *.pyc
+server/chat.db
+chat_service_pb2_grpc.py
+chat_service_pb2.py
