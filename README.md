@@ -20,7 +20,7 @@ Starting the client:
 1. In another terminal window and from the root directory, activate the environment again `source venv/bin/activate`
 2. Run from the root directory `python -m client.main <protocol_version> <server_ip> <server_port>`
    1. Usage: use 1.0 for custom protocol version and 2.0 for JSON protocol version
-   2. Example: `python -m client.main 1.0 1 127.0.0.1 65432`
+   2. Example: `python -m client.main 1.0 127.0.0.1 65432`
 
 # Testing
 To run the unit tests, simply run: `pytest`
