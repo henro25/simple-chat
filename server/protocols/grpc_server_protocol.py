@@ -16,8 +16,29 @@ import chat_service_pb2_grpc
 # gRPC server setup
 # -----------------------------
 class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
-    def Login(self, request, context):
+    def Register(self, request, context):
+        success, errno = database.register_account(request.username, request.password)
         
+        if success:
+            # TODO: Push USER message to all active clients
+            
+            user_unreads = [
+                chat_service_pb2.UserUnread(username=user, unread_count=unread)
+                for user, unread in database.get_conversations(request.username)
+            ]
+
+            debug(f"User {request.username} registered successfully.")
+            active_clients[request.username] = "active"
+            return chat_service_pb2.LoginResponse(
+                errno=SUCCESS,
+                page_code=REG_PG,
+                client_username=request.username,
+                user_unreads=user_unreads)
+        else:
+            debug(f"User {request.username} failed to registers: {errno}")
+            return chat_service_pb2.LoginResponse(errno=errno)
+        
+    def Login(self, request, context):        
         success, errno = database.verify_login(request.username, request.password)
         
         # Check for active client
@@ -39,9 +60,4 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 user_unreads=user_unreads)
         else:
             debug(f"User {request.username} failed to log in: {errno}")
-            return chat_service_pb2.LoginResponse(
-                errno=errno,
-                page_code=0,
-                client_username=request.username,
-                user_unreads=[]
-            )
+            return chat_service_pb2.LoginResponse(errno=errno)

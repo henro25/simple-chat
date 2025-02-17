@@ -18,7 +18,7 @@ import configs.config as config
 # Import both protocol modules.
 import client.protocols.custom_protocol as custom_protocol
 import client.protocols.json_protocol as json_protocol
-import client.protocols.grpc_protocol as grpc_protocol
+import client.protocols.grpc_client_protocol as grpc_client_protocol
 
 # gRPC imports
 import grpc
@@ -95,7 +95,7 @@ class Client:
         let the selector notify us when we can send it with sockets.
         """
         if config.CUR_PROTO_VERSION == "3.0":
-            grpc_protocol.send_grpc_request(self, request)
+            grpc_client_protocol.send_grpc_request(self, request)
             return
         
         # For other versions, we send the request directly via sockets

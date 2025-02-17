@@ -17,13 +17,19 @@ def send_login_request(Client, request):
     """
     Handle the login request and update the UI accordingly.
     """
-    # gRPC call
     return Client.stub.Login(request)
+
+def send_register_request(Client, request):
+    """
+    Handle the register request and update the UI accordingly.
+    """
+    return Client.stub.Register(request)
 
 # ------------------------
 # Handle gPRC Responses
 # ------------------------
 def handle_login_response(Client, response):
+    """ Handles the user Login and Registration responses. """
     # Access the structured fields directly.
     page_code = response.page_code
     client_username = response.client_username
@@ -50,6 +56,8 @@ def handle_error(Client, response):
 
 def send_grpc_request(Client, request):
     # Send the request
+    if isinstance(request, chat_service_pb2.RegisterRequest):
+        response = send_register_request(Client, request)
     if isinstance(request, chat_service_pb2.LoginRequest):
         response = send_login_request(Client, request)
         

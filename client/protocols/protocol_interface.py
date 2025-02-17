@@ -30,6 +30,8 @@ def create_registration_request(username, password):
     elif config.CUR_PROTO_VERSION == "2.0":
         # For JSON, we assume that wrapping a message with opcode "CREATE" is equivalent.
         return json_protocol.create_registration_request(username, password)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.RegisterRequest(username=username, password=password)
     else:
         return unsupported_error()
 
