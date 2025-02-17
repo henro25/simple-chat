@@ -21,9 +21,8 @@ message UserUnread {
 // Updated LoginResponse to include a page code, the client username,
 // and a list of users with their unread counts.
 message LoginResponse {
-  bool success = 1;
-  int32 error_msg = 2;
-  int32 page_code = 3;              // e.g., 10
-  string client_username = 4;     // e.g., "henro"
-  repeated UserUnread user_unreads = 5; // List of other users and their unread counts.
+  int32 errno = 1;
+  int32 page_code = 2;                  // e.g., 10
+  string client_username = 3;           // e.g., "henro"
+  repeated UserUnread user_unreads = 4; // List of other users and their unread counts.
 }

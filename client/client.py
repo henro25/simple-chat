@@ -18,10 +18,10 @@ import configs.config as config
 # Import both protocol modules.
 import client.protocols.custom_protocol as custom_protocol
 import client.protocols.json_protocol as json_protocol
+import client.protocols.grpc_protocol as grpc_protocol
 
 # gRPC imports
 import grpc
-import chat_service_pb2
 import chat_service_pb2_grpc
 
 # Create a default selector
@@ -42,6 +42,7 @@ class Client:
         self.inb = ""  # Buffer to hold incoming data
         self.channel = grpc.insecure_channel(f'{config.SERVER_HOST}:{config.SERVER_PORT + 1}') # gRPC channel
         self.stub = chat_service_pb2_grpc.ChatServiceStub(self.channel) # gRPC stub
+        
         try:
             self.sock.connect(self.server_address)
             config.debug(f"Client: connected to server at {self.server_address}")
@@ -89,28 +90,12 @@ class Client:
 
     def send_request(self, request):
         """
-        Send a request to the server.
+        Send a request to the server, either via gRPC or directly via sockets.
         Instead of immediately waiting for a response, we store outgoing data and
-        let the selector notify us when we can send it.
+        let the selector notify us when we can send it with sockets.
         """
         if config.CUR_PROTO_VERSION == "3.0":
-            # gRPC call
-            response = self.stub.Login(request)
-            config.debug(f"gRPC response: \n{response}")
-            
-            # Access the structured fields directly.
-            page_code = response.page_code
-            client_username = response.client_username
-
-            # Build a conversation list (or user list) from the repeated UserUnread field.
-            convo_list = [(user.username, user.unread_count) for user in response.user_unreads]
-
-            # Use page code to update the UI or signal success.
-            if page_code == config.REG_PG:
-                self.register_page.registerSuccessful.emit(client_username, convo_list)
-            elif page_code == config.LGN_PG:
-                self.login_page.loginSuccessful.emit(client_username, convo_list)
-            
+            grpc_protocol.send_grpc_request(self, request)
             return
         
         # For other versions, we send the request directly via sockets

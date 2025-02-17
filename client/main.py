@@ -112,6 +112,10 @@ if __name__ == '__main__':
         sys.exit(1)
 
     config.CUR_PROTO_VERSION = sys.argv[1]
+    if config.CUR_PROTO_VERSION not in config.SUPPORTED_VERSIONS:
+        print(f"Error: Protocol version {config.CUR_PROTO_VERSION} is not supported.")
+        sys.exit(1)
+    
     config.SERVER_HOST = sys.argv[2]
     try:
         config.SERVER_PORT = int(sys.argv[3])
