@@ -7,6 +7,7 @@ service ChatService {
   rpc Register(RegisterRequest) returns (LoginResponse);
   rpc GetChatHistory(ChatHistoryRequest) returns (ChatHistoryResponse);
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
 
   // Bi-directional streaming RPC for live updates after logging in or registering
   rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
@@ -122,9 +123,39 @@ message SendMessageRequest {
  *
  * Fields:
  * - errno: The error number (SUCCESS for this function)
- * - msgid: The message id of the message sent
+ * - msg_id: The message id of the message sent
  */
 message SendMessageResponse {
   int32 errno = 1;
   int32 msg_id = 2;
+}
+
+// ------------------------------
+// Delete Message
+// ------------------------------
+
+/**
+ * A delete message request
+ *
+ * Fields:
+ * - msg_id: The message id of the message deleted
+ */
+message DeleteMessageRequest {
+  int32 msg_id = 1;
+}
+
+/**
+ * An response of a delete message request
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function)
+ * - sender: The username of the sender
+ * - msg_id: The message id to delete
+ * - read_status: `1` if the message was unread, `0` if it had already been read.
+ */
+message DeleteMessageResponse {
+  int32 errno = 1;
+  string sender = 2;
+  int32 msg_id = 3;
+  int32 read_status = 4;
 }

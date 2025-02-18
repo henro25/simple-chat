@@ -142,6 +142,37 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         #             print(f"Failed to push message to {recipient}: {e}")
         
         return chat_service_pb2.SendMessageResponse(errno=SUCCESS, msg_id=msg_id)
+    
+    def DeleteMessage(self, request, context):
+        """
+        Handles a client's request to delete a message.
+        Expects data: [msg_id].
+
+        Returns a response with data: [msg_id] on success.
+        """
+        
+        msg_id = request.msg_id
+        recipient, sender, unread, errno = database.delete_message(msg_id)
+        if recipient:
+            response = chat_service_pb2.DeleteMessageResponse(
+                errno=SUCCESS, 
+                sender=sender,
+                msg_id=msg_id, 
+                read_status=unread
+            )
+            
+            # TODO: Push live message to recipient if they are online
+            # with utils.active_clients_lock:
+            #     if recipient in utils.active_clients:
+            #         recipient_sock = utils.active_clients[recipient]
+            #         try:
+            #             debug(f"Server: pushing message: {response}")
+            #             recipient_sock.sendall(response.encode('utf-8') + b"\n")
+            #         except Exception as e:
+            #             print(f"Failed to push message to {recipient}: {e}")
+            return response
+        else:
+            return chat_service_pb2.DeleteMessageResponse(errno=errno)
         
     def UpdateStream(self, request_iterator, context):
         """

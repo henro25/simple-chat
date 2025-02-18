@@ -95,6 +95,8 @@ def create_delete_message_request(msg_id):
         return custom_protocol.create_delete_message_request(msg_id)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_delete_message_request(msg_id)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.DeleteMessageRequest(msg_id=msg_id)
     else:
         return unsupported_error()
 

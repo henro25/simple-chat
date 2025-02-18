@@ -13,6 +13,17 @@ import chat_service_pb2
 # ------------------------
 # Handle gPRC Responses
 # ------------------------
+def handle_error(Client, response):
+    """
+    Handles an error message.
+    """
+    try:
+        errno = int(response.errno)
+    except Exception:
+        errno = -1
+    if errno in (1, 2, 3, 8):
+        Client.login_page.displayLoginErrors(errno)
+
 def handle_login_response(Client, response):
     """ Handles the user Login and Registration responses. """
     # Access the structured fields directly.
@@ -53,17 +64,28 @@ def handle_chat_history(Client, response):
 def handle_ack(Client, response):
     """ Handles a message acknowledgement. """
     Client.messaging_page.displaySentMessage(response.msg_id)
-
-def handle_error(Client, response):
+    
+def handle_delete(Client, response):
     """
-    Handles an error message.
+    Handles a delete message response.
     """
-    try:
-        errno = int(response.errno)
-    except Exception:
-        errno = -1
-    if errno in (1, 2, 3, 8):
-        Client.login_page.displayLoginErrors(errno)
+    msg_id = response.msg_id
+    sender = response.sender
+    unread = response.read_status
+    
+    # If in conversation then real time deletion
+    if Client.cur_convo and msg_id in Client.messaging_page.message_info:
+        Client.messaging_page.removeMessageDisplay(msg_id)
+    else:
+        if unread:
+            # Update number of unreads
+            Client.list_convos_page.num_unreads[sender] -= 1
+            # Move sender to top of convos
+            ind = Client.list_convos_page.convo_order.index(sender)
+            del Client.list_convos_page.convo_order[ind]
+            Client.list_convos_page.convo_order.insert(0, sender)
+            # Refresh the page
+            Client.list_convos_page.refresh(0)
 
 def send_grpc_request(Client, request):
     # Send the request
@@ -75,6 +97,8 @@ def send_grpc_request(Client, request):
         response = Client.stub.GetChatHistory(request)
     elif isinstance(request, chat_service_pb2.SendMessageRequest):
         response = Client.stub.SendMessage(request)
+    elif isinstance(request, chat_service_pb2.DeleteMessageRequest):
+        response = Client.stub.DeleteMessage(request)
         
     config.debug(f"gRPC response: \n{response}")
     
@@ -90,3 +114,5 @@ def send_grpc_request(Client, request):
         handle_chat_history(Client, response)
     elif isinstance(response, chat_service_pb2.SendMessageResponse):
         handle_ack(Client, response)
+    elif isinstance(response, chat_service_pb2.DeleteMessageResponse):
+        handle_delete(Client, response)
