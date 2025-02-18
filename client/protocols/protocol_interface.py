@@ -50,6 +50,8 @@ def create_delete_account_request(username):
         return custom_protocol.create_delete_account_request(username)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_delete_account_request(username)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.DeleteAccountRequest(username=username)
     else:
         return unsupported_error()
 

@@ -8,6 +8,7 @@ service ChatService {
   rpc GetChatHistory(ChatHistoryRequest) returns (ChatHistoryResponse);
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
   rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
 
   // Bi-directional streaming RPC for live updates after logging in or registering
   rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
@@ -158,4 +159,29 @@ message DeleteMessageResponse {
   string sender = 2;
   int32 msg_id = 3;
   int32 read_status = 4;
+}
+
+
+// ------------------------------
+// Delete Account
+// ------------------------------
+
+/**
+ * A delete account request
+ *
+ * Fields:
+ * - username: The username of the account to delete
+ */
+message DeleteAccountRequest {
+  string username = 1;
+}
+
+/**
+ * An response of a delete account request
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function)
+ */
+message DeleteAccountResponse {
+  int32 errno = 1;
 }

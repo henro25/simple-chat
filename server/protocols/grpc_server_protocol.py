@@ -124,6 +124,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         sender = request.sender
         recipient = request.recipient
         message = request.text
+        msg_id = -1
 
         # check if recipient has deactivated their account
         if database.verify_valid_recipient(recipient):
@@ -174,6 +175,18 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         else:
             return chat_service_pb2.DeleteMessageResponse(errno=errno)
         
+    def DeleteAccount(self, request, context):
+        """
+        Handle a client's request to delete their account.
+        """
+        errno = database.deactivate_account(request.username)
+        
+        if errno == SUCCESS:
+            utils.remove_active_client(request.username)
+            return chat_service_pb2.DeleteAccountResponse(errno=SUCCESS)
+        else:
+            return chat_service_pb2.DeleteAccountResponse(errno=errno)
+
     def UpdateStream(self, request_iterator, context):
         """
         Bi-directional stream where the client sends subscription/heartbeat messages,

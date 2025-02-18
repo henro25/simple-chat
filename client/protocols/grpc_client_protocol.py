@@ -65,7 +65,7 @@ def handle_ack(Client, response):
     """ Handles a message acknowledgement. """
     Client.messaging_page.displaySentMessage(response.msg_id)
     
-def handle_delete(Client, response):
+def handle_delete_msg(Client, response):
     """
     Handles a delete message response.
     """
@@ -87,6 +87,12 @@ def handle_delete(Client, response):
             # Refresh the page
             Client.list_convos_page.refresh(0)
 
+def handle_delete_acc(Client):
+    """
+    Handles an account deletion notification.
+    """
+    Client.list_convos_page.successfulAccountDel()
+
 def send_grpc_request(Client, request):
     # Send the request
     if isinstance(request, chat_service_pb2.RegisterRequest):
@@ -99,6 +105,8 @@ def send_grpc_request(Client, request):
         response = Client.stub.SendMessage(request)
     elif isinstance(request, chat_service_pb2.DeleteMessageRequest):
         response = Client.stub.DeleteMessage(request)
+    elif isinstance(request, chat_service_pb2.DeleteAccountRequest):
+        response = Client.stub.DeleteAccount(request)
         
     config.debug(f"gRPC response: \n{response}")
     
@@ -115,4 +123,6 @@ def send_grpc_request(Client, request):
     elif isinstance(response, chat_service_pb2.SendMessageResponse):
         handle_ack(Client, response)
     elif isinstance(response, chat_service_pb2.DeleteMessageResponse):
-        handle_delete(Client, response)
+        handle_delete_msg(Client, response)
+    elif isinstance(response, chat_service_pb2.DeleteAccountResponse):
+        handle_delete_acc(Client)
