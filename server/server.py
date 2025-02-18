@@ -9,8 +9,8 @@ import sys
 import selectors
 import socket
 import types
+import server.utils as utils
 from . import database
-from server.utils import active_clients
 from configs.config import *
 
 # Import both protocol modules.
@@ -67,7 +67,7 @@ def service_connection(key, mask):
                     if command in ("LOGIN", "CREATE") and not response.startswith("1.0 ERROR"):
                         username = args[0]
                         data.username = username
-                        active_clients[username] = sock
+                        utils.add_active_client(username, sock)
                         debug(f"User {username} is now online (Custom protocol).")
                 elif message_str.startswith("2.0"):
                     # Process using the JSON protocol.
@@ -76,7 +76,7 @@ def service_connection(key, mask):
                     if opcode in ("LOGIN", "CREATE") and not "ERROR" in response:
                         username = msg_data[0]
                         data.username = username
-                        active_clients[username] = sock
+                        utils.add_active_client(username, sock)
                         debug(f"User {username} is now online (JSON protocol).")
                 else:
                     # Unsupported protocol version; return error message.
@@ -90,7 +90,7 @@ def service_connection(key, mask):
                     data.outb += response.encode("utf-8") + b"\n"
         else:
             if data.username:
-                active_clients.pop(data.username, None)
+                utils.remove_active_client(data.username)
                 debug(f"User {data.username} disconnected.")
             sel.unregister(sock)
             sock.close()

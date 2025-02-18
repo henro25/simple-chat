@@ -32,16 +32,19 @@ def handle_login_response(Client, response):
     """ Handles the user Login and Registration responses. """
     # Access the structured fields directly.
     page_code = response.page_code
-    client_username = response.client_username
+    Client.username = response.client_username
 
     # Build a conversation list (or user list) from the repeated UserUnread field.
     convo_list = [(user.username, user.unread_count) for user in response.user_unreads]
+    
+    # Start the live updates thread
+    Client.start_live_updates()
 
     # Use page code to update the UI or signal success.
     if page_code == config.REG_PG:
-        Client.register_page.registerSuccessful.emit(client_username, convo_list)
+        Client.register_page.registerSuccessful.emit(Client.username, convo_list)
     elif page_code == config.LGN_PG:
-        Client.login_page.loginSuccessful.emit(client_username, convo_list)
+        Client.login_page.loginSuccessful.emit(Client.username, convo_list)
 
 def handle_error(Client, response):
     """

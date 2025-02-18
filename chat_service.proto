@@ -5,6 +5,19 @@ package chat;
 service ChatService {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc Register(RegisterRequest) returns (LoginResponse);
+
+  // Bi-directional streaming RPC for live updates after logging in or registering
+  rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
+}
+
+// Request to subscribe to live updates
+message LiveUpdateRequest {
+  string username = 1;
+}
+
+// Message containing live update data from the server
+message LiveUpdate {
+  string update_message = 1;
 }
 
 // Request for logging in

@@ -12,6 +12,7 @@ Date: 2024-2-6
 import sys
 import socket
 import selectors
+# import time
 
 import configs.config as config
 
@@ -22,7 +23,9 @@ import client.protocols.grpc_client_protocol as grpc_client_protocol
 
 # gRPC imports
 import grpc
+import chat_service_pb2
 import chat_service_pb2_grpc
+import threading
 
 # Create a default selector
 sel = selectors.DefaultSelector()
@@ -42,6 +45,7 @@ class Client:
         self.inb = ""  # Buffer to hold incoming data
         self.channel = grpc.insecure_channel(f'{config.SERVER_HOST}:{config.SERVER_PORT + 1}') # gRPC channel
         self.stub = chat_service_pb2_grpc.ChatServiceStub(self.channel) # gRPC stub
+        self.live_updates_thread = None
         
         try:
             self.sock.connect(self.server_address)
@@ -51,6 +55,27 @@ class Client:
         except Exception as e:
             config.debug(f"Client: failed to connect to server at {self.server_address}: {e}")
             raise
+    
+    def start_live_updates(self):
+        """Starts a background thread that handles the live update stream."""
+        self.live_updates_thread = threading.Thread(target=self._live_updates_loop)
+        self.live_updates_thread.start()
+        print("Live updates started.")
+    
+    def _live_updates_loop(self):
+        """Creates a generator to send subscription and heartbeat messages, and processes updates."""
+        def request_generator():
+            # Send an initial subscription message.
+            yield chat_service_pb2.LiveUpdateRequest(username=self.username)
+
+        try:
+            # Open the bi-directional stream.
+            response_iterator = self.stub.UpdateStream(request_generator())
+            for update in response_iterator:
+                # Process the update (e.g., update the UI).
+                print(f"Received live update: {update.update_message}")
+        except grpc.RpcError as e:
+            print("Live update stream terminated:", e)
 
     def service_connection(self, key, mask):
         """Handles both incoming communication with the server."""
@@ -128,5 +153,6 @@ class Client:
 
     def close(self):
         """Close the client connection."""
+        self.channel.close()
         sel.unregister(self.sock)
         self.sock.close()
