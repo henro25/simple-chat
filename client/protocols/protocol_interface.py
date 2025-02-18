@@ -67,6 +67,8 @@ def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1
         return custom_protocol.create_chat_history_request(username, other_user, num_msgs, oldest_msg_id)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_chat_history_request(username, other_user, num_msgs, oldest_msg_id)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.ChatHistoryRequest(username=username, other_user=other_user, num_msgs=num_msgs, oldest_msg_id=oldest_msg_id)
     else:
         return unsupported_error()
 

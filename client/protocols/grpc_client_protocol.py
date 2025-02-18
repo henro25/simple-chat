@@ -11,21 +11,6 @@ import configs.config as config
 import chat_service_pb2
 
 # ------------------------
-# Handle gPRC Requests
-# ------------------------
-def send_login_request(Client, request):
-    """
-    Handle the login request and update the UI accordingly.
-    """
-    return Client.stub.Login(request)
-
-def send_register_request(Client, request):
-    """
-    Handle the register request and update the UI accordingly.
-    """
-    return Client.stub.Register(request)
-
-# ------------------------
 # Handle gPRC Responses
 # ------------------------
 def handle_login_response(Client, response):
@@ -46,6 +31,25 @@ def handle_login_response(Client, response):
     elif page_code == config.LGN_PG:
         Client.login_page.loginSuccessful.emit(Client.username, convo_list)
 
+def handle_chat_history(Client, response):
+    """ Handles the chat history response. """
+    page_code = response.page_code
+    num_unreads = response.unread_count
+
+    # Build a chat history list from the repeated ChatMessage field.
+    chat_history = [(msg.sender == Client.username, msg.msg_id, msg.text) for msg in response.chat_history]
+    print("chat_history:", chat_history)
+
+    updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_unreads)
+    config.debug(f"page_code: {page_code}, updated_unread: {updated_unread}")
+    if page_code==config.CONVO_PG:
+        Client.list_convos_page.conversationSelected.emit(chat_history, updated_unread)
+    else:
+        if Client.messaging_page.num_unread > 0:
+            Client.messaging_page.updateUnreadCount(updated_unread)
+            Client.list_convos_page.updateAfterRead(updated_unread)
+        Client.messaging_page.addChatHistory(chat_history)
+
 def handle_error(Client, response):
     """
     Handles an error message.
@@ -60,9 +64,11 @@ def handle_error(Client, response):
 def send_grpc_request(Client, request):
     # Send the request
     if isinstance(request, chat_service_pb2.RegisterRequest):
-        response = send_register_request(Client, request)
-    if isinstance(request, chat_service_pb2.LoginRequest):
-        response = send_login_request(Client, request)
+        response = Client.stub.Register(request)
+    elif isinstance(request, chat_service_pb2.LoginRequest):
+        response = Client.stub.Login(request)
+    elif isinstance(request, chat_service_pb2.ChatHistoryRequest):
+        response = Client.stub.GetChatHistory(request)
         
     config.debug(f"gRPC response: \n{response}")
     
@@ -74,3 +80,5 @@ def send_grpc_request(Client, request):
     # Handle the response
     if isinstance(response, chat_service_pb2.LoginResponse):
         handle_login_response(Client, response)
+    elif isinstance(response, chat_service_pb2.ChatHistoryResponse):
+        handle_chat_history(Client, response)

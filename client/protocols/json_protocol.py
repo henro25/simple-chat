@@ -118,6 +118,7 @@ def handle_chat_history(data, Client):
     page_code = int(data[0])
     num_unreads = int(data[1])
     chat_history = deserialize_chat_history(data[2:])
+    print("chat_history:", chat_history)
     updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_unreads)
     debug(f"page_code: {page_code}, updated_unread: {updated_unread}")
     if page_code==CONVO_PG:

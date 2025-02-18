@@ -5,6 +5,7 @@ package chat;
 service ChatService {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc Register(RegisterRequest) returns (LoginResponse);
+  rpc GetChatHistory(ChatHistoryRequest) returns (ChatHistoryResponse);
 
   // Bi-directional streaming RPC for live updates after logging in or registering
   rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
@@ -45,4 +46,54 @@ message LoginResponse {
   int32 page_code = 2;                  // e.g., 10
   string client_username = 3;           // e.g., "henro"
   repeated UserUnread user_unreads = 4; // List of other users and their unread counts.
+}
+
+// ------------------------------
+// Chat History Messages
+// ------------------------------
+
+/**
+ * Request to fetch a conversation's history.
+ *
+ * Fields:
+ * - username: The requesting user's username.
+ * - other_user: The other user in the conversation.
+ * - num_msgs: The number of messages to fetch.
+ * - oldest_msg_id: Starting message id (-1 indicates to fetch the most recent messages).
+ */
+message ChatHistoryRequest {
+  string username = 1;
+  string other_user = 2;
+  int32 num_msgs = 3;
+  int32 oldest_msg_id = 4;
+}
+
+/**
+ * A single chat message.
+ *
+ * Fields:
+ * - sender: The username of the sender of the message
+ * - message_id: Unique identifier for the message.
+ * - text: The actual message text.
+ */
+message Message {
+  string sender = 1;
+  int32 msg_id = 2;
+  string text = 3;
+}
+
+/**
+ * Response for a chat history request.
+ *
+ * Fields:
+ * - errno: The error number if there's an error, but SUCCESS for this function
+ * - page_code: Identifier for the conversation or page.
+ * - unread_count: The number of unread messages in the conversation.
+ * - chat_history: A list of messages.
+ */
+message ChatHistoryResponse {
+  int32 errno = 1;
+  int32 page_code = 2;
+  int32 unread_count = 3;
+  repeated Message chat_history = 4; 
 }

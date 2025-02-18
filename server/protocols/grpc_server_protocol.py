@@ -68,6 +68,51 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             debug(f"User {request.username} failed to log in: {errno}")
             return chat_service_pb2.LoginResponse(errno=errno)
         
+    def GetChatHistory(self, request, context):
+        """
+        Fetch a conversation's history between the requesting user and another user.
+        The request includes:
+          - username: The requesting user's username.
+          - other_user: The other user in the conversation.
+          - num_msgs: The number of messages requested.
+          - oldest_msg_id: Starting message id (-1 indicates to fetch the most recent messages).
+        """
+        username = request.username
+        other_user = request.other_user
+        num_msgs = request.num_msgs
+        oldest_msg_id = request.oldest_msg_id
+
+        # Determine the page code based on oldest_msg_id:
+        # If oldest_msg_id != -1, assume this is an ongoing conversation (MSG_PG),
+        # otherwise, it is a new conversation load (CONVO_PG).
+        page_code = MSG_PG if oldest_msg_id != -1 else CONVO_PG
+
+        # Retrieve unread count and chat history from your database.
+        # Assume database.get_recent_messages returns a tuple: (unread_count, history)
+        # where history is a list of dictionaries like:
+        # {"sender": <username>, "id": <msg_id>, "message": <text>}
+        unread_count, history = database.get_recent_messages(username, other_user, oldest_msg_id, num_msgs)
+
+        # Build the list of Message objects for the response.
+        chat_messages = []
+        for message in history:
+            msg = chat_service_pb2.Message(
+                sender=message["sender"],
+                msg_id=message["id"],
+                text=message["message"]
+            )
+            chat_messages.append(msg)
+
+        debug(f"{username} read {unread_count} unread messages from {other_user}")
+
+        # Construct and return the ChatHistoryResponse.
+        return chat_service_pb2.ChatHistoryResponse(
+            errno=SUCCESS,
+            page_code=page_code,
+            unread_count=unread_count,
+            chat_history=chat_messages
+        )
+        
     def UpdateStream(self, request_iterator, context):
         """
         Bi-directional stream where the client sends subscription/heartbeat messages,
