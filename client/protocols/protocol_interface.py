@@ -85,6 +85,8 @@ def create_send_message_request(username, other_user, message):
         return custom_protocol.create_send_message_request(username, other_user, message)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_send_message_request(username, other_user, message)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.SendMessageRequest(sender=username, recipient=other_user, text=message)
     else:
         return unsupported_error()
 

@@ -113,6 +113,36 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             chat_history=chat_messages
         )
         
+    def SendMessage(self, request, context):
+        """
+        Send a message from the requesting user to another user.
+        The request includes:
+          - sender: The requesting user's username.
+          - recipient: The other user in the conversation.
+          - text: The message text sent.
+        """
+        sender = request.sender
+        recipient = request.recipient
+        message = request.text
+
+        # check if recipient has deactivated their account
+        if database.verify_valid_recipient(recipient):
+            msg_id = database.store_message(sender, recipient, message)
+        
+        # TODO: Push message to recipient if they are online
+        # push_message = wrap_message("PUSH_MSG", [sender, str(msg_id), message])
+        
+        # with utils.active_clients_lock:
+        #     if recipient in utils.active_clients:
+        #         recipient_sock = utils.active_clients[recipient]
+        #         try:
+        #             debug(f"Server: pushing message: {push_message}")
+        #             recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
+        #         except Exception as e:
+        #             print(f"Failed to push message to {recipient}: {e}")
+        
+        return chat_service_pb2.SendMessageResponse(errno=SUCCESS, msg_id=msg_id)
+        
     def UpdateStream(self, request_iterator, context):
         """
         Bi-directional stream where the client sends subscription/heartbeat messages,

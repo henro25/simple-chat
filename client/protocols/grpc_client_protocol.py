@@ -49,6 +49,10 @@ def handle_chat_history(Client, response):
             Client.messaging_page.updateUnreadCount(updated_unread)
             Client.list_convos_page.updateAfterRead(updated_unread)
         Client.messaging_page.addChatHistory(chat_history)
+        
+def handle_ack(Client, response):
+    """ Handles a message acknowledgement. """
+    Client.messaging_page.displaySentMessage(response.msg_id)
 
 def handle_error(Client, response):
     """
@@ -69,6 +73,8 @@ def send_grpc_request(Client, request):
         response = Client.stub.Login(request)
     elif isinstance(request, chat_service_pb2.ChatHistoryRequest):
         response = Client.stub.GetChatHistory(request)
+    elif isinstance(request, chat_service_pb2.SendMessageRequest):
+        response = Client.stub.SendMessage(request)
         
     config.debug(f"gRPC response: \n{response}")
     
@@ -82,3 +88,5 @@ def send_grpc_request(Client, request):
         handle_login_response(Client, response)
     elif isinstance(response, chat_service_pb2.ChatHistoryResponse):
         handle_chat_history(Client, response)
+    elif isinstance(response, chat_service_pb2.SendMessageResponse):
+        handle_ack(Client, response)

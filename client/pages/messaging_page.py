@@ -149,7 +149,6 @@ class MessagingPage(QWidget):
         self.btnSend.clicked.connect(self.sendMessage)
         self.messageEdit.returnPressed.connect(self.sendMessage)
 
-
     def sendMessage(self):
         message = self.messageEdit.text().strip()
         if message:

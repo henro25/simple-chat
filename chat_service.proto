@@ -6,6 +6,7 @@ service ChatService {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc Register(RegisterRequest) returns (LoginResponse);
   rpc GetChatHistory(ChatHistoryRequest) returns (ChatHistoryResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
 
   // Bi-directional streaming RPC for live updates after logging in or registering
   rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
@@ -86,7 +87,7 @@ message Message {
  * Response for a chat history request.
  *
  * Fields:
- * - errno: The error number if there's an error, but SUCCESS for this function
+ * - errno: The error number (SUCCESS for this function)
  * - page_code: Identifier for the conversation or page.
  * - unread_count: The number of unread messages in the conversation.
  * - chat_history: A list of messages.
@@ -96,4 +97,34 @@ message ChatHistoryResponse {
   int32 page_code = 2;
   int32 unread_count = 3;
   repeated Message chat_history = 4; 
+}
+
+// ------------------------------
+// Send Message
+// ------------------------------
+
+/**
+ * A send message request
+ *
+ * Fields:
+ * - sender: The username of the sender of the message
+ * - recipient: The username of the recipient of the message
+ * - text: The actual message text.
+ */
+message SendMessageRequest {
+  string sender = 1;
+  string recipient = 2;
+  string text = 3;
+}
+
+/**
+ * An acknowledgement of a send message request
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function)
+ * - msgid: The message id of the message sent
+ */
+message SendMessageResponse {
+  int32 errno = 1;
+  int32 msg_id = 2;
 }
