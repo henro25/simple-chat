@@ -49,3 +49,97 @@ We will confirm these improvements by measuring:
   - **Server streaming**: Keep a stream open for notifications.
   - **Bidirectional streaming**: Client and server exchange messages continuously on one channel.
 - If you do **not** implement streaming, you can do **poll-based** calls to fetch updates at intervals.
+
+---
+
+## 3. What Has Been Implemented So Far
+
+### 3.1 The New Protocol Definition
+
+- A new **`.proto` file** has been created that defines:
+  - **Authentication** messages (`LoginRequest`, `RegisterRequest`, `LoginResponse`, etc.).
+  - **Chat History** messages (`ChatHistoryRequest`, `ChatHistoryResponse`, and the `Message` type).
+  - **Send Message** and **Delete Message** RPCs, with corresponding request and response messages.
+  - **Live Updates** via a bidirectional streaming RPC (`UpdateStream`) for push notifications.
+  - **Acknowledgement** for push messages.
+
+### 3.2 Integration with Existing Protocols
+
+- One of the really cool things we achieved was integrating **protocol 3.0 (gRPC)** with the existing **protocol 1.0 (custom)** and **protocol 2.0 (JSON)**.
+- The client now contains logic that chooses the proper protocol based on configuration. If protocol 3.0 is active, it sends requests using the auto-generated gRPC stubs.
+
+### 3.3 Client-Side gRPC Integration
+
+- A new module, `grpc_client_protocol.py`, was created to encapsulate the gRPC logic on the client side.
+- **Key Features:**
+  - **Request Handling:** Functions like `send_grpc_request()` determine which RPC to call based on the type of request.
+  - **Response Processing:** Specialized functions (e.g., `handle_login_response()`, `handle_chat_history()`) process the structured gRPC responses.
+  - **Live Updates:**  
+    - A separate thread is launched to handle a bidirectional streaming RPC.  
+    - When live updates are received on this background thread, a custom Qt event is posted to the main thread so that UI components can be updated accordingly.
+
+### 3.4 Server-Side gRPC Integration
+
+- A new module, `grpc_server_protocol.py`, was created for the gRPC server implementation.
+- **Key Features:**
+  - Implements the `ChatServiceServicer` with all RPC endpoints (e.g., `Login`, `Register`, `SendMessage`, `DeleteMessage`, etc.).
+  - Integrates with the existing database and client management logic to handle account registration, login, and message delivery.
+  - Implements the bidirectional streaming RPC (`UpdateStream`) for live updates, including logic to push messages (such as new chat messages, user updates, or message deletions) to connected clients.
+  - Uses a shared RPC send queue to manage messages destined for clients over gRPC.
+
+### 3.5 Concurrency and UI Integration
+
+- **Threading:**  
+  - The client launches a separate thread dedicated to managing the streaming RPC for live updates.
+  - This ensures that the UI remains responsive while handling real-time communication.
+- **Event Handling:**  
+  - Upon receiving an update on the live updates thread, a custom Qt event (`LiveUpdateEvent`) is posted to the main thread.
+  - The main thread then processes the update, refreshing the UI components (e.g., chat windows, conversation lists).
+
+---
+
+## 4. Lessons Learned and Challenges
+
+- **Socket vs. RPC Integration:**  
+  - One challenge was managing the different lifecycles of raw socket connections (for protocols 1.0 and 2.0) versus gRPC streams (protocol 3.0).  
+  - We had to ensure that client connections were handled appropriately in both models.
+  
+- **Threading and UI Updates:**  
+  - Integrating background threads for streaming RPC with a Qt-based UI required careful event posting to prevent thread safety issues.
+  - Debugging race conditions between the streaming thread and UI updates was particularly time-consuming.
+
+- **Error Handling:**  
+  - Handling errors from both synchronous RPC calls and asynchronous stream updates required a robust and unified error handling strategy.
+  - We improved our logging and debugging output to better trace issues like unconnected sockets or protocol conversion errors.
+
+---
+
+## 5. Next Steps
+
+1. **Measure Performance:**  
+   - Benchmark message sizes and latency between the custom protocols and gRPC.
+
+2. **Expand Functionality:**  
+   - Check if there's bugs or other functionalities that need to be completed.
+
+3. **Comprehensive Testing:**  
+   - Develop integration tests that simulate concurrent clients interacting over both traditional sockets and gRPC.
+   - Automate testing of real-time message delivery and UI event handling.
+
+4. **Documentation & Deployment:**  
+   - Finalize documentation to help future developers understand the integration between protocols.
+   - Prepare deployment scripts and configuration management for production environments.
+
+---
+
+## 6. Summary
+
+In this phase of the project, we:
+- Defined a comprehensive Protocol Buffers specification for a chat application.
+- Integrated gRPC into an existing chat application, coexisting with legacy protocols.
+- Implemented client-side and server-side modules to handle gRPC calls and live update streams.
+- Solved challenging issues around multi-threading, event handling, and error management.
+
+The work so far has demonstrated the feasibility and benefits of migrating to gRPC. The next phase will focus on performance optimization, error handling refinement, and expanding the application's features.
+
+*End of Notebook Entry*
