@@ -5,14 +5,16 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-17
 """
 
+import socket 
+
 from .. import database
 import server.utils as utils
 from configs.config import *
+import server.protocols.custom_protocol as custom_protocol
+import server.protocols.json_protocol as json_protocol
 
 import chat_service_pb2
 import chat_service_pb2_grpc
-
-temp_updates = [f"New Message {i}!" for i in range(10)]
 
 # -----------------------------
 # gRPC server setup
@@ -31,7 +33,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             ]
 
             debug(f"User {request.username} registered successfully.")
-            utils.add_active_client(request.username, "active")
+            utils.add_active_client(request.username, [])
             
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
@@ -57,7 +59,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             ]
 
             debug(f"User {request.username} logged in successfully.")
-            utils.add_active_client(request.username, "active")
+            utils.add_active_client(request.username, [])
             
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
@@ -130,17 +132,30 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         if database.verify_valid_recipient(recipient):
             msg_id = database.store_message(sender, recipient, message)
         
-        # TODO: Push message to recipient if they are online
-        # push_message = wrap_message("PUSH_MSG", [sender, str(msg_id), message])
-        
-        # with utils.active_clients_lock:
-        #     if recipient in utils.active_clients:
-        #         recipient_sock = utils.active_clients[recipient]
-        #         try:
-        #             debug(f"Server: pushing message: {push_message}")
-        #             recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
-        #         except Exception as e:
-        #             print(f"Failed to push message to {recipient}: {e}")
+        # Push message to recipient if they are online
+        with utils.active_clients_lock:
+            debug(f"Active clients: {utils.active_clients}")
+            if recipient in utils.active_clients:
+                # Recipient is online via protocol 1.0 or 2.0 if they are in active_clients with a socket
+                if isinstance(utils.active_clients[recipient], socket.socket):
+                    recipient_sock = utils.active_clients[recipient]
+                    try:
+                        push_message = custom_protocol.wrap_message("PUSH_MSG", [sender, str(msg_id), message])
+                        debug(f"Server: pushing message: {push_message}")
+                        recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
+                    except Exception as e:
+                        print(f"Failed to push message to {recipient}: {e}")
+                else:
+                    # Recipient is online via protocol 3.0 (gRPC)
+                    debug(f"Server: appending push message to {recipient} via gRPC")
+                    utils.active_clients[recipient].append(
+                        chat_service_pb2.PushMessage(
+                                errno=SUCCESS,
+                                sender=sender,
+                                msg_id=msg_id,
+                                text=message
+                        )
+                    )
         
         return chat_service_pb2.SendMessageResponse(errno=SUCCESS, msg_id=msg_id)
     
@@ -162,7 +177,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 read_status=unread
             )
             
-            # TODO: Push live message to recipient if they are online
+            # TODO: Push live delete to recipient if they are online
             # with utils.active_clients_lock:
             #     if recipient in utils.active_clients:
             #         recipient_sock = utils.active_clients[recipient]
@@ -186,6 +201,14 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             return chat_service_pb2.DeleteAccountResponse(errno=SUCCESS)
         else:
             return chat_service_pb2.DeleteAccountResponse(errno=errno)
+    
+    def AckPushMessage(self, request, context):
+        """
+        Handles a live message acknowledgement.
+        """
+        msg_id = request.msg_id
+        database.mark_message_as_read(msg_id)
+        return chat_service_pb2.AckPushMessageResponse(errno=SUCCESS)
 
     def UpdateStream(self, request_iterator, context):
         """
@@ -209,8 +232,14 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 # Here you would check for new updates for the client.
                 # For example, checking a message queue, database, etc.
                 update = self._get_update_for_user(username)
+                
                 if update:
-                    yield chat_service_pb2.LiveUpdate(update_message=update)
+                    debug(f"Sending update to {username}: {update}")
+                    if isinstance(update, chat_service_pb2.PushMessage):
+                        debug(f"Sending PushMessage to {username}: {update}")
+                        yield chat_service_pb2.LiveUpdate(push_message=update)
+                    # elif ...:
+                        # TODO: Handle other types of updates here
         except Exception as e:
             print(f"Exception in UpdateStream for {username}: {e}")
         finally:
@@ -223,8 +252,10 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         Return the update message string if available, otherwise return None.
         """
         # Replace with your actual update-checking logic.
-        if temp_updates:
-            return temp_updates.pop()
+        if utils.active_clients[username]:
+            debug(f"User {username} has updates.")
+            debug(f"User {username} updates: {utils.active_clients[username]}")
+            return utils.active_clients[username].pop(0)
         return None
 
     def _cleanup_client_stream(self, username):

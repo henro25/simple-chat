@@ -9,20 +9,15 @@ service ChatService {
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
   rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+  rpc AckPushMessage(AckPushMessageRequest) returns (AckPushMessageResponse);
 
   // Bi-directional streaming RPC for live updates after logging in or registering
   rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
 }
 
-// Request to subscribe to live updates
-message LiveUpdateRequest {
-  string username = 1;
-}
-
-// Message containing live update data from the server
-message LiveUpdate {
-  string update_message = 1;
-}
+// ------------------------------
+// Authentication
+// ------------------------------
 
 // Request for logging in
 message RegisterRequest {
@@ -183,5 +178,55 @@ message DeleteAccountRequest {
  * - errno: The error number (SUCCESS for this function)
  */
 message DeleteAccountResponse {
+  int32 errno = 1;
+}
+
+// ------------------------------
+// Live Updates
+// ------------------------------
+
+// Request to subscribe to live updates
+message LiveUpdateRequest {
+  string username = 1;
+}
+
+// Define a PushMessage message with the desired fields.
+message PushMessage {
+  int32 errno = 1;
+  string sender = 2;
+  int32 msg_id = 3;
+  string text = 4;
+}
+
+// Message containing live update data from the server.
+// Using a oneof field to allow for different types of updates,
+// including the new PushMessage.
+message LiveUpdate {
+  oneof update {
+    PushMessage push_message = 1;
+  }
+}
+
+// ------------------------------
+// Ack Push Message
+// ------------------------------
+
+/**
+ * Request to acknowledge receipt of a push message.
+ *
+ * Fields:
+ * - msg_id: The message id of the push message being acknowledged.
+ */
+message AckPushMessageRequest {
+  int32 msg_id = 1;
+}
+
+/**
+ * Response for acknowledging a push message.
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function).
+ */
+message AckPushMessageResponse {
   int32 errno = 1;
 }

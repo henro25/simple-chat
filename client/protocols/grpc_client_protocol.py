@@ -92,6 +92,29 @@ def handle_delete_acc(Client):
     Handles an account deletion notification.
     """
     Client.list_convos_page.successfulAccountDel()
+    
+def handle_incoming_message(Client, push_msg):
+    """Handles an incoming message pushed from the server."""
+    sender = push_msg.sender
+    msg_id = push_msg.msg_id
+    message = push_msg.text
+    
+    print(f"Received push message from {push_msg.sender} (id {push_msg.msg_id}): {push_msg.text}")
+
+    # Notify the UI to update the chat if in conversation with sender
+    if Client.cur_convo == sender:
+        Client.messaging_page.displayIncomingMessage(sender, msg_id, message)
+        # Send message delivered acknowledgement back to server
+        Client.stub.AckPushMessage(chat_service_pb2.AckPushMessageRequest(msg_id=msg_id))
+    # Update number of unreads displayed on list convos page
+    else:
+        Client.list_convos_page.num_unreads[sender] += 1
+        # Move sender to top of convos
+        ind = Client.list_convos_page.convo_order.index(sender)
+        del Client.list_convos_page.convo_order[ind]
+        Client.list_convos_page.convo_order.insert(0, sender)
+        # Refresh the page
+        Client.list_convos_page.refresh(0)
 
 def send_grpc_request(Client, request):
     # Send the request
@@ -126,3 +149,17 @@ def send_grpc_request(Client, request):
         handle_delete_msg(Client, response)
     elif isinstance(response, chat_service_pb2.DeleteAccountResponse):
         handle_delete_acc(Client)
+
+def process_live_update(Client, update):
+    """Processes live updates from the server."""
+    if isinstance(update, chat_service_pb2.LiveUpdate):
+        update_type = update.WhichOneof("update")
+        
+        config.debug(f"Received live update: {update_type}")
+        
+        if update_type == "push_message":
+            handle_incoming_message(Client, update.push_message)
+        else:
+            print("Received unknown live update type.")
+    else:
+        print("Invalid live update format.")
