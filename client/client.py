@@ -1,9 +1,10 @@
 """
 Module Name: client.py
 Description: The main client program that handles network communication with the server.
-It connects UI events to network operations and now supports two protocol versions:
+It connects UI events to network operations and now supports 3 protocol versions:
   - 1.0: Handled by client.protocols.custom_protocol
   - 2.0: Handled by client.protocols.json_protocol
+  - 3.0: Handled by client.protocols.grpc_client_protocol
 If an unsupported version is received, an error is generated.
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
@@ -12,11 +13,10 @@ Date: 2024-2-6
 import sys
 import socket
 import selectors
-# import time
 
 import configs.config as config
 
-# Import both protocol modules.
+# Import protocol modules
 import client.protocols.custom_protocol as custom_protocol
 import client.protocols.json_protocol as json_protocol
 import client.protocols.grpc_client_protocol as grpc_client_protocol
@@ -26,12 +26,12 @@ import grpc
 import chat_service_pb2
 import chat_service_pb2_grpc
 import threading
-from PyQt5.QtCore import QEvent, QObject, QTimer, QCoreApplication
-from PyQt5.QtCore import QMetaObject, Qt, pyqtSlot, Q_ARG
+from PyQt5.QtCore import QEvent, QObject, QCoreApplication
 
 # Create a default selector
 sel = selectors.DefaultSelector()
 
+# Create a custom event type for live updates
 LIVE_UPDATE_EVENT_TYPE = QEvent.registerEventType()
 
 class LiveUpdateEvent(QEvent):
@@ -137,7 +137,8 @@ class Client(QObject):
         Instead of immediately waiting for a response, we store outgoing data and
         let the selector notify us when we can send it with sockets.
         """
-        if config.CUR_PROTO_VERSION == "3.0":
+        # Check if current protocol version is 3.0 and the request is a gRPC request (not string)
+        if config.CUR_PROTO_VERSION == "3.0" and not isinstance(request, str):
             grpc_client_protocol.send_grpc_request(self, request)
             return
         

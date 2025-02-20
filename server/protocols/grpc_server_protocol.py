@@ -10,8 +10,6 @@ import socket
 from .. import database
 import server.utils as utils
 from configs.config import *
-import server.protocols.custom_protocol as custom_protocol
-import server.protocols.json_protocol as json_protocol
 
 import chat_service_pb2
 import chat_service_pb2_grpc
@@ -33,7 +31,11 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             ]
 
             debug(f"User {request.username} registered successfully.")
-            utils.add_active_client(request.username, [])
+            
+            # Add the socket object to active_clients.
+            client_sock = utils.get_passive_client((request.ip_address, request.port))
+            utils.add_active_client(request.username, client_sock)  
+            utils.add_rpc_send_queue_user(request.username)
             
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
@@ -41,15 +43,15 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 client_username=request.username,
                 user_unreads=user_unreads)
         else:
-            debug(f"User {request.username} failed to registers: {errno}")
+            debug(f"User {request.username} failed to register: {errno}")
             return chat_service_pb2.LoginResponse(errno=errno)
-        
+    
     def Login(self, request, context):        
         success, errno = database.verify_login(request.username, request.password)
         
         # Check for active client
-        with utils.active_clients_lock:
-            if request.username in utils.active_clients:
+        with utils.rpc_send_queue_lock:
+            if request.username in utils.rpc_send_queue:
                 return chat_service_pb2.LoginResponse(errno=USER_LOGGED_ON)
         
         if success:
@@ -59,7 +61,11 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             ]
 
             debug(f"User {request.username} logged in successfully.")
-            utils.add_active_client(request.username, [])
+            
+            # Add the socket object to active_clients.
+            client_sock = utils.get_passive_client((request.ip_address, request.port))
+            utils.add_active_client(request.username, client_sock)  
+            utils.add_rpc_send_queue_user(request.username)
             
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
@@ -133,29 +139,18 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             msg_id = database.store_message(sender, recipient, message)
         
         # Push message to recipient if they are online
-        with utils.active_clients_lock:
-            debug(f"Active clients: {utils.active_clients}")
-            if recipient in utils.active_clients:
-                # Recipient is online via protocol 1.0 or 2.0 if they are in active_clients with a socket
-                if isinstance(utils.active_clients[recipient], socket.socket):
-                    recipient_sock = utils.active_clients[recipient]
-                    try:
-                        push_message = custom_protocol.wrap_message("PUSH_MSG", [sender, str(msg_id), message])
-                        debug(f"Server: pushing message: {push_message}")
-                        recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
-                    except Exception as e:
-                        print(f"Failed to push message to {recipient}: {e}")
-                else:
-                    # Recipient is online via protocol 3.0 (gRPC)
-                    debug(f"Server: appending push message to {recipient} via gRPC")
-                    utils.active_clients[recipient].append(
-                        chat_service_pb2.PushMessage(
-                                errno=SUCCESS,
-                                sender=sender,
-                                msg_id=msg_id,
-                                text=message
-                        )
+        with utils.rpc_send_queue_lock:
+            debug(f"Active RPC clients: {utils.rpc_send_queue}")
+            if recipient in utils.rpc_send_queue:
+                debug(f"Server: appending push message to {recipient} via gRPC")
+                utils.rpc_send_queue[recipient].append(
+                    chat_service_pb2.PushMessage(
+                            errno=SUCCESS,
+                            sender=sender,
+                            msg_id=msg_id,
+                            text=message
                     )
+                )
         
         return chat_service_pb2.SendMessageResponse(errno=SUCCESS, msg_id=msg_id)
     
@@ -178,14 +173,6 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             )
             
             # TODO: Push live delete to recipient if they are online
-            # with utils.active_clients_lock:
-            #     if recipient in utils.active_clients:
-            #         recipient_sock = utils.active_clients[recipient]
-            #         try:
-            #             debug(f"Server: pushing message: {response}")
-            #             recipient_sock.sendall(response.encode('utf-8') + b"\n")
-            #         except Exception as e:
-            #             print(f"Failed to push message to {recipient}: {e}")
             return response
         else:
             return chat_service_pb2.DeleteMessageResponse(errno=errno)
@@ -197,7 +184,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         errno = database.deactivate_account(request.username)
         
         if errno == SUCCESS:
-            utils.remove_active_client(request.username)
+            self._cleanup_client_stream(request.username)
             return chat_service_pb2.DeleteAccountResponse(errno=SUCCESS)
         else:
             return chat_service_pb2.DeleteAccountResponse(errno=errno)
@@ -206,6 +193,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         """
         Handles a live message acknowledgement.
         """
+        debug(f"Received AckPushMessage: {request}")
         msg_id = request.msg_id
         database.mark_message_as_read(msg_id)
         return chat_service_pb2.AckPushMessageResponse(errno=SUCCESS)
@@ -224,7 +212,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
 
         username = first_request.username
         # (Register the client’s live update stream if necessary.)
-        print(f"User {username} subscribed for live updates.")
+        debug(f"User {username} subscribed for live updates.")
 
         try:
             # Main streaming loop.
@@ -251,11 +239,8 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         Placeholder function: Check if there is a new update for the given user.
         Return the update message string if available, otherwise return None.
         """
-        # Replace with your actual update-checking logic.
-        if utils.active_clients[username]:
-            debug(f"User {username} has updates.")
-            debug(f"User {username} updates: {utils.active_clients[username]}")
-            return utils.active_clients[username].pop(0)
+        if utils.rpc_send_queue[username]:
+            return utils.rpc_send_queue[username].pop(0)
         return None
 
     def _cleanup_client_stream(self, username):
@@ -263,3 +248,4 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         Remove the client from any active streaming lists, etc.
         """
         utils.remove_active_client(username)
+        utils.remove_rpc_send_queue_user(username)

@@ -107,7 +107,7 @@ class RegisterPage(QWidget):
         password = self.passwordEdit.text().strip()
         if valid_username and password:
             hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
-            request = create_registration_request(username, hashed_password)
+            request = create_registration_request(self.Client, username, hashed_password)
             self.Client.send_request(request)
         elif not valid_username:
             QMessageBox.critical(self, "Registration Error", "Please enter username without white space.")

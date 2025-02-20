@@ -35,6 +35,7 @@ def accept_wrapper(sock):
     data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"", username=None)
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
     sel.register(conn, events, data=data)
+    utils.add_passive_client(addr, conn)  # Add to passive clients
 
 def service_connection(key, mask):
     """Handles client-server communication."""
@@ -68,6 +69,7 @@ def service_connection(key, mask):
                         username = args[0]
                         data.username = username
                         utils.add_active_client(username, sock)
+                        utils.add_rpc_send_queue_user(username)
                         debug(f"User {username} is now online (Custom protocol).")
                 elif message_str.startswith("2.0"):
                     # Process using the JSON protocol.
@@ -77,6 +79,7 @@ def service_connection(key, mask):
                         username = msg_data[0]
                         data.username = username
                         utils.add_active_client(username, sock)
+                        utils.add_rpc_send_queue_user(username)
                         debug(f"User {username} is now online (JSON protocol).")
                 else:
                     # Unsupported protocol version; return error message.
@@ -145,7 +148,7 @@ if __name__ == "__main__":
 
     # Get the current local IP address.
     local_ip = get_local_ip()
-
+    
     lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Bind to the current IP address and port 0 (random available port)
     lsock.bind((local_ip, 0))
