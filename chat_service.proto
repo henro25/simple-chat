@@ -194,12 +194,18 @@ message LiveUpdateRequest {
   string username = 1;
 }
 
-// Define a PushMessage message with the desired fields.
+// Define a PushMessage message
 message PushMessage {
   int32 errno = 1;
   string sender = 2;
   int32 msg_id = 3;
   string text = 4;
+}
+
+// Define a PushUser message
+message PushUser {
+  int32 errno = 1;
+  string username = 2;
 }
 
 // Message containing live update data from the server.
@@ -208,6 +214,7 @@ message PushMessage {
 message LiveUpdate {
   oneof update {
     PushMessage push_message = 1;
+    PushUser push_user = 2;
   }
 }
 

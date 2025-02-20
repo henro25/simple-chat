@@ -23,7 +23,17 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         success, errno = database.register_account(request.username, request.password)
         
         if success:
-            # TODO: Push USER message to all active clients
+            # Push new user to all active clients
+            with utils.rpc_send_queue_lock:
+                debug(f"Active RPC clients: {utils.rpc_send_queue.keys()}")
+                for recipient in utils.rpc_send_queue.keys():
+                    debug(f"Server: appending push_user message to {recipient} via gRPC")
+                    utils.rpc_send_queue[recipient].append(
+                        chat_service_pb2.PushUser(
+                                errno=SUCCESS,
+                                username=request.username,
+                        )
+                    )
             
             user_unreads = [
                 chat_service_pb2.UserUnread(username=user, unread_count=unread)
@@ -226,8 +236,9 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                     if isinstance(update, chat_service_pb2.PushMessage):
                         debug(f"Sending PushMessage to {username}: {update}")
                         yield chat_service_pb2.LiveUpdate(push_message=update)
-                    # elif ...:
-                        # TODO: Handle other types of updates here
+                    elif isinstance(update, chat_service_pb2.PushUser):
+                        debug(f"Sending PushUser to {username}: {update}")
+                        yield chat_service_pb2.LiveUpdate(push_user=update)
         except Exception as e:
             print(f"Exception in UpdateStream for {username}: {e}")
         finally:

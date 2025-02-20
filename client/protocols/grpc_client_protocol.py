@@ -116,6 +116,15 @@ def handle_incoming_message(Client, push_msg):
         # Refresh the page
         Client.list_convos_page.refresh(0)
 
+def handle_push_user(Client, push_user):
+    """
+    Handles a new user pushed from the server.
+    """
+    new_user = push_user.username
+    Client.list_convos_page.convo_order.append(new_user)
+    Client.list_convos_page.num_unreads[new_user] = 0
+    Client.list_convos_page.displayConvo(new_user)
+
 def send_grpc_request(Client, request):
     # Send the request
     if isinstance(request, chat_service_pb2.RegisterRequest):
@@ -159,6 +168,8 @@ def process_live_update(Client, update):
         
         if update_type == "push_message":
             handle_incoming_message(Client, update.push_message)
+        elif update_type == "push_user":
+            handle_push_user(Client, update.push_user)
         else:
             print("Received unknown live update type.")
     else:
