@@ -125,6 +125,28 @@ def handle_push_user(Client, push_user):
     Client.list_convos_page.num_unreads[new_user] = 0
     Client.list_convos_page.displayConvo(new_user)
 
+def handle_delete_msg(Client, push_delete_msg):
+    """
+    Handles a delete message response
+    """
+    msg_id = push_delete_msg.msg_id
+    sender = push_delete_msg.sender
+    unread = push_delete_msg.read_status
+    
+    # If in conversation then real time deletion
+    if Client.cur_convo and msg_id in Client.messaging_page.message_info:
+        Client.messaging_page.removeMessageDisplay(msg_id)
+    else:
+        if unread:
+            # Update number of unreads
+            Client.list_convos_page.num_unreads[sender] -= 1
+            # Move sender to top of convos
+            ind = Client.list_convos_page.convo_order.index(sender)
+            del Client.list_convos_page.convo_order[ind]
+            Client.list_convos_page.convo_order.insert(0, sender)
+            # Refresh the page
+            Client.list_convos_page.refresh(0)
+
 def send_grpc_request(Client, request):
     # Send the request
     if isinstance(request, chat_service_pb2.RegisterRequest):
@@ -170,6 +192,8 @@ def process_live_update(Client, update):
             handle_incoming_message(Client, update.push_message)
         elif update_type == "push_user":
             handle_push_user(Client, update.push_user)
+        elif update_type == "push_delete_msg":
+            handle_delete_msg(Client, update.push_delete_msg)
         else:
             print("Received unknown live update type.")
     else:

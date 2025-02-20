@@ -208,6 +208,14 @@ message PushUser {
   string username = 2;
 }
 
+// Define a PushDeleteMsg message
+message PushDeleteMsg {
+  int32 errno = 1;
+  int32 msg_id = 2;
+  string sender = 3;
+  int32 read_status = 4;
+}
+
 // Message containing live update data from the server.
 // Using a oneof field to allow for different types of updates,
 // including the new PushMessage.
@@ -215,6 +223,7 @@ message LiveUpdate {
   oneof update {
     PushMessage push_message = 1;
     PushUser push_user = 2;
+    PushDeleteMsg push_delete_msg = 3;
   }
 }
 

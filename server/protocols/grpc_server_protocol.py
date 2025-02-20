@@ -150,9 +150,8 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         
         # Push message to recipient if they are online
         with utils.rpc_send_queue_lock:
-            debug(f"Active RPC clients: {utils.rpc_send_queue}")
             if recipient in utils.rpc_send_queue:
-                debug(f"Server: appending push message to {recipient} via gRPC")
+                debug(f"Server: appending push SEND message to {recipient} via gRPC")
                 utils.rpc_send_queue[recipient].append(
                     chat_service_pb2.PushMessage(
                             errno=SUCCESS,
@@ -182,7 +181,19 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 read_status=unread
             )
             
-            # TODO: Push live delete to recipient if they are online
+            # Push live delete to recipient if they are online
+            with utils.rpc_send_queue_lock:
+                if recipient in utils.rpc_send_queue:
+                    debug(f"Server: appending push DELETE message to {recipient} via gRPC")
+                    utils.rpc_send_queue[recipient].append(
+                        chat_service_pb2.PushDeleteMsg(
+                                errno=SUCCESS,
+                                msg_id=msg_id,
+                                sender=sender,
+                                read_status=unread
+                        )
+                    )
+                    
             return response
         else:
             return chat_service_pb2.DeleteMessageResponse(errno=errno)
@@ -239,6 +250,9 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                     elif isinstance(update, chat_service_pb2.PushUser):
                         debug(f"Sending PushUser to {username}: {update}")
                         yield chat_service_pb2.LiveUpdate(push_user=update)
+                    elif isinstance(update, chat_service_pb2.PushDeleteMsg):
+                        debug(f"Sending PushDeleteMsg to {username}: {update}")
+                        yield chat_service_pb2.LiveUpdate(push_delete_msg=update)
         except Exception as e:
             print(f"Exception in UpdateStream for {username}: {e}")
         finally:
