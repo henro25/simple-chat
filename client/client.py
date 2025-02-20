@@ -26,11 +26,18 @@ import grpc
 import chat_service_pb2
 import chat_service_pb2_grpc
 import threading
-from PyQt5.QtCore import QObject, QTimer
+from PyQt5.QtCore import QEvent, QObject, QTimer, QCoreApplication
 from PyQt5.QtCore import QMetaObject, Qt, pyqtSlot, Q_ARG
 
 # Create a default selector
 sel = selectors.DefaultSelector()
+
+LIVE_UPDATE_EVENT_TYPE = QEvent.registerEventType()
+
+class LiveUpdateEvent(QEvent):
+    def __init__(self, update):
+        super().__init__(LIVE_UPDATE_EVENT_TYPE)
+        self.update = update
 
 class Client(QObject):
     def __init__(self, host=config.SERVER_HOST, port=config.SERVER_PORT):
@@ -59,6 +66,13 @@ class Client(QObject):
             config.debug(f"Client: failed to connect to server at {self.server_address}: {e}")
             raise
     
+    def event(self, event):
+        if event.type() == LIVE_UPDATE_EVENT_TYPE:
+            # Process the update in the main thread.
+            grpc_client_protocol.process_live_update(self, event.update)
+            return True
+        return super().event(event)
+    
     def start_live_updates(self):
         """Starts a background thread that handles the live update stream."""
         self.live_updates_thread = threading.Thread(target=self._live_updates_loop)
@@ -75,25 +89,11 @@ class Client(QObject):
             # Open the bi-directional stream.
             response_iterator = self.stub.UpdateStream(request_generator())
             for update in response_iterator:
-                # TODO: CALL IN MAIN THREAD: 
-                # Process the update
-                # grpc_client_protocol.process_live_update(self, update)
-                config.debug(f"Received live update: {update}")
-                # QTimer.singleShot(0, lambda upd=update: self.process_live_update(upd))
-                # Use QMetaObject.invokeMethod with a QueuedConnection
-                QMetaObject.invokeMethod(
-                    self,
-                    "process_live_update",
-                    Qt.QueuedConnection,
-                    Q_ARG(object, update)
-                )
+                # Process the update in main thread (instead of the live updates thread).
+                event = LiveUpdateEvent(update)
+                QCoreApplication.postEvent(self, event)
         except grpc.RpcError as e:
             print("Live update stream terminated:", e)
-            
-    @pyqtSlot(object)
-    def process_live_update(self, update):
-        # This function now runs in the main thread.
-        grpc_client_protocol.process_live_update(self, update)
 
     def service_connection(self, key, mask):
         """Handles both incoming communication with the server."""
