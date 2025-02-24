@@ -18,7 +18,14 @@ os.chdir(server_dir)
 from server import database
 from server.protocols import custom_protocol, json_protocol
 from configs.config import *
-from server.utils import active_clients
+import grpc
+from concurrent import futures
+from unittest.mock import patch
+import server.utils as utils
+import chat_service_pb2
+import chat_service_pb2_grpc
+
+from server.protocols.grpc_server_protocol import MyChatService
 
 # Fixture to set up and tear down a temporary test database.
 @pytest.fixture(autouse=True)
@@ -52,9 +59,9 @@ def setup_database():
 # ------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def clear_active_clients():
-    active_clients.clear()
+    utils.active_clients.clear()
     yield
-    active_clients.clear()
+    utils.active_clients.clear()
 
 # ------------------------------------------------------------
 # DummySocket to simulate a client connection for push messages.
@@ -126,7 +133,7 @@ def test_custom_handle_get_chat_history():
 def test_custom_handle_send_message():
     # Set up a dummy socket for bob to capture push messages.
     dummy_sock = DummySocket()
-    active_clients["bob"] = dummy_sock
+    utils.active_clients["bob"] = dummy_sock
     args = ["alice", "bob", "Hi", "Bob"]
     response = custom_protocol.handle_send_message(args)
     # Response should be in the format: "1.0 ACK <msg_id>".
@@ -147,11 +154,11 @@ def test_custom_handle_delete_messages():
 def test_custom_handle_delete_account():
     # Add "charlie" to active_clients.
     dummy_sock = DummySocket()
-    active_clients["charlie"] = dummy_sock
+    utils.active_clients["charlie"] = dummy_sock
     args = ["charlie"]
     response = custom_protocol.handle_delete_account(args)
     assert response == "1.0 DEL_ACC"
-    assert "charlie" not in active_clients
+    assert "charlie" not in utils.active_clients
 
 def test_custom_process_message_dispatch():
     # Test that process_message dispatches correctly to the LOGIN handler.
@@ -229,7 +236,7 @@ def test_json_handle_get_chat_history():
 def test_json_handle_send_message():
     # Set up a dummy socket for bob.
     dummy_sock = DummySocket()
-    active_clients["bob"] = dummy_sock
+    utils.active_clients["bob"] = dummy_sock
     data = ["alice", "bob", "Hi", "JSON"]
     response = json_protocol.handle_send_message(data)
     version, opcode, resp_data = json_protocol.parse_message(response)
@@ -250,13 +257,13 @@ def test_json_handle_delete_messages():
 
 def test_json_handle_delete_account():
     dummy_sock = DummySocket()
-    active_clients["david"] = dummy_sock
+    utils.active_clients["david"] = dummy_sock
     data = ["david"]
     response = json_protocol.handle_delete_account(data)
     version, opcode, resp_data = json_protocol.parse_message(response)
     assert version == PROTOCOL_VERSION
     assert opcode == "DEL_ACC"
-    assert "david" not in active_clients
+    assert "david" not in utils.active_clients
 
 def test_json_process_message_dispatch():
     # Test that process_message correctly dispatches a LOGIN request.
@@ -267,3 +274,138 @@ def test_json_process_message_dispatch():
     # We expect a USERS response in reply to a successful login.
     assert opcode == "USERS"
     assert resp_data[1] == "alice"
+
+# ============================
+# Tests for gRPC Protocol
+# ============================
+
+@pytest.fixture(scope="module")
+def grpc_server():
+    """Sets up a test gRPC server."""
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    chat_service_pb2_grpc.add_ChatServiceServicer_to_server(MyChatService(), server)
+    port = server.add_insecure_port("[::]:50051")
+    server.start()
+    yield f"localhost:{port}"
+    server.stop(None)
+
+@pytest.fixture(scope="module")
+def grpc_stub(grpc_server):
+    """Creates a gRPC channel and stub for testing."""
+    channel = grpc.insecure_channel(grpc_server)
+    return chat_service_pb2_grpc.ChatServiceStub(channel)
+
+
+def test_register(grpc_stub):
+    """Tests the registration of a new user following the format of custom and JSON protocols."""
+    username = "testuser"
+    password = "password"
+    request = chat_service_pb2.RegisterRequest(username=username, password=password, ip_address="127.0.0.1", port=5000)
+    response = grpc_stub.Register(request)
+    
+    expected_response = {
+        "errno": 0,  # SUCCESS
+        "page_code": 1,  # Assuming REG_PG is 1
+        "client_username": username
+    }
+    
+    assert response.errno == expected_response["errno"]
+    assert response.client_username == expected_response["client_username"]
+
+def test_login(grpc_stub):
+    """Tests user login following the format of custom and JSON protocols."""
+    """Tests user login by ensuring credentials exist in the database before attempting login."""
+    username = "Alice"
+    password = "Hash1"
+    database.register_account(username, password)
+    
+    request = chat_service_pb2.LoginRequest(username=username, password=password, ip_address="127.0.0.1", port=5000)
+    response = grpc_stub.Login(request)
+    
+    expected_response = {
+        "errno": 0,  # SUCCESS
+        "page_code": LGN_PG,
+        "client_username": username
+    }
+    
+    assert response.errno == expected_response["errno"]
+    assert response.client_username == expected_response["client_username"]
+
+
+def test_get_chat_history(grpc_stub):
+    """Tests retrieving chat history and ensuring correctness."""
+    sender = "testuser"
+    recipient = "anotheruser"
+    test_message = "Hello, this is a test message!"
+    
+    # Ensure the user has sent at least one message
+    send_response = grpc_stub.SendMessage(
+        chat_service_pb2.SendMessageRequest(sender=sender, recipient=recipient, text=test_message)
+    )
+    assert send_response.errno == 0  # SUCCESS
+    msg_id = send_response.msg_id
+    
+    request = chat_service_pb2.ChatHistoryRequest(username=sender, other_user=recipient, num_msgs=10, oldest_msg_id=-1)
+    response = grpc_stub.GetChatHistory(request)
+    
+    assert response.errno == 0  # SUCCESS
+    assert len(response.chat_history) > 0  # Ensure at least one message exists
+    
+    # Verify the correct message is retrieved
+    last_message = response.chat_history[-1]
+    assert last_message.sender == sender
+    assert last_message.text == test_message
+
+def test_send_message(grpc_stub):
+    """Tests sending a message."""
+    request = chat_service_pb2.SendMessageRequest(sender="testuser", recipient="anotheruser", text="Hello!")
+    response = grpc_stub.SendMessage(request)
+    assert response.errno == 0  # SUCCESS
+    assert response.msg_id > 0  # Valid message ID
+
+def test_delete_message(grpc_stub):
+    """Tests deleting a message by ensuring a message exists before attempting deletion."""
+    sender = "testuser"
+    recipient = "anotheruser"
+    message_text = "This is a test message to be deleted."
+    
+    # Send a message first
+    send_response = grpc_stub.SendMessage(
+        chat_service_pb2.SendMessageRequest(sender=sender, recipient=recipient, text=message_text)
+    )
+    assert send_response.errno == 0  # Ensure message was sent successfully
+    msg_id = send_response.msg_id
+    
+    # Now delete the message
+    request = chat_service_pb2.DeleteMessageRequest(msg_id=msg_id)
+    response = grpc_stub.DeleteMessage(request)
+    
+    assert response.errno == 0  # SUCCESS
+
+def test_delete_account(grpc_stub):
+    """Tests deleting an account."""
+    username = "testuser"
+    password = "password"
+    database.register_account(username, password)
+    
+    response = grpc_stub.DeleteAccount(chat_service_pb2.DeleteAccountRequest(username=username))
+    
+    assert response.errno == 0  # SUCCESS
+    assert "testuser" not in utils.active_clients
+
+
+def test_live_updates(grpc_stub):
+    """Tests bidirectional streaming for live updates."""
+    
+    def request_generator():
+        yield chat_service_pb2.LiveUpdateRequest(username="testuser")  # Subscribe to updates
+    
+    # Simulate an update: Send a message that should trigger a live update
+    grpc_stub.SendMessage(chat_service_pb2.SendMessageRequest(sender="testuser", recipient="anotheruser", text="Live update test"))
+
+    responses = grpc_stub.UpdateStream(request_generator())  # Start streaming
+    
+    for response in responses:
+        assert isinstance(response, chat_service_pb2.LiveUpdate)  # Ensure server responded
+        break  # Stop after first response
+
