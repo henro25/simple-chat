@@ -132,6 +132,46 @@ We will confirm these improvements by measuring:
 
 ---
 
+## Implemented Benchmarking for Message Size and Message Efficiency
+
+### Overview
+We benchmarked two communication protocols—**custom** and **gRPC**—to evaluate differences in Execution Time (Efficiency) and Message Size (Data Overhead). The goal was to evaluate which protocol is more efficient and lightweight in handling operations such as: Registering a user, Logging in, Sending a message, Retrieving chat history.
+Our hypothesis was that the Custom Protocol would be faster since it involves direct message parsing without much serialization overhead.
+
+### Hypothesis
+- **Custom Protocol Efficiency:** Custom Protocol would have smaller message sizes, as it avoids Protobuf encoding.
+gRPC would be more robust but introduce additional overhead due to protocol buffers. 
+
+### Implementation Details
+- **Custom Protocol:**
+  - **Pros:** 
+    - Reduced message size due to fewer delimiters.
+    - Faster processing, as there's less data to parse.
+  - **Cons:** 
+    - Rigid parsing requirements: Each opcode must be precisely caught, redirected, and parsed.
+    - More error-prone when handling complex structures.
+- **gRPC Protocol:**
+  - **Pros:** 
+    - Strong type enforcement and automatic serialization.
+    - Supports automatic message parsing and structured data transmission.
+    - Scales better with complex data structures.
+  - **Cons:** 
+    - Larger message sizes due to Protobuf encoding.
+    - Potentially slower due to extra serialization/deserialization steps.
+
+### Observations and Trade-offs
+Experimental results are available in the `test/benchmarking_protocols.ipynb` notebook. The graphs shown at the end of the notebook help validate our hypothesis and provide a visual confirmation of the performance differences between the two protocols.
+- **Data Size Comparison:**  gRPC messages are significantly larger compared to Custom Protocol messages, specifically, gRPC messages are approximately 2x to 3x larger than their Custom Protocol counterparts. This makes sense as the extra size in gRPC comes from Protobuf serialization overhead and structural metadata. Custom Protocol minimizes redundancy by transmitting only essential data, avoiding extra field labels.
+- **Performance (execution time) Comparison:** Custom Protocol is consistently faster than gRPC in all operations, specifically, Custom Protocol is ~3-4x faster than gRPC for register, login, and chat retrieval. The biggest time difference is in message sending, where gRPC takes longer due to serialization and network overhead. Parsing overhead in gRPC results in slower response times compared to the simpler, string-based Custom Protocol. 
+- **Maintenance:** The tight coupling of opcode handling in the custom protocol has led to occasional errors, particularly when expanding functionality. Custom Protocol optimizes for minimal size but sacrifices flexibility.
+- **Flexibility vs. Efficiency:** The larger gRPC message size is a cost of using a more structured and type-safe approach. gRPC's additional time cost is justified by built-in reliability and structured communication. Custom Protocol, while faster, is harder to scale with complex data formats.
+
+
+### Conclusion
+Our benchmarking results show a clear trade-off between speed/size efficiency (Custom Protocol) and scalability/maintainability (gRPC). We conclude that Custom Protocol is best for speed-critical, lightweight messaging apps and gRPC is better for scalable, structured applications with complex data. Moving forward, we might also explore hybrid solutions where Custom Protocol is used for real-time messaging, while gRPC is used for backend services that might balance performance with flexibility.
+
+---
+
 ## 6. Summary
 
 In this phase of the project, we:
