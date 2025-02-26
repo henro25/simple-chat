@@ -145,7 +145,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         msg_id = -1
 
         # check if recipient has deactivated their account
-        if database.verify_valid_recipient(recipient):
+        if database.verify_valid_recipient(recipient)==1:
             msg_id = database.store_message(sender, recipient, message)
         
         # Push message to recipient if they are online
