@@ -135,18 +135,16 @@ We will confirm these improvements by measuring:
 ## Implemented Benchmarking for Message Size and Message Efficiency
 
 ### Overview
-We benchmarked two communication protocols—**custom** and **gRPC**—to evaluate differences in Execution Time (Efficiency) and Message Size (Data Overhead). The goal was to evaluate which protocol is more efficient and lightweight in handling operations such as: Registering a user, Logging in, Sending a message, Retrieving chat history.
-Our hypothesis was that the Custom Protocol would be faster since it involves direct message parsing without much serialization overhead.
+We benchmarked two communication protocols—**custom** and **gRPC**—to evaluate differences in Message Size (Data Overhead). The goal was to evaluate which protocol is more efficient and lightweight in handling operations such as: Registering a user, Logging in, Sending a message, Retrieving chat history, Deleting account, Deleting message.
+To measure data size, we first directly meassured Protobuf-encoded message size then we measured the data size with transport metadata.
 
 ### Hypothesis
-- **Custom Protocol Efficiency:** Custom Protocol would have smaller message sizes, as it avoids Protobuf encoding.
-gRPC would be more robust but introduce additional overhead due to protocol buffers. 
+- **Custom Protocol Efficiency:** gRPC would have smaller message sizes without metadata, as it employs binary encoding for Protobuf so it should be more compact than our text-based custom protocol. gRPC should have larger datasizes with metadata due to extra metadata overhead.
 
 ### Implementation Details
 - **Custom Protocol:**
   - **Pros:** 
-    - Reduced message size due to fewer delimiters.
-    - Faster processing, as there's less data to parse.
+    - No metadata overhead
   - **Cons:** 
     - Rigid parsing requirements: Each opcode must be precisely caught, redirected, and parsed.
     - More error-prone when handling complex structures.
@@ -156,15 +154,16 @@ gRPC would be more robust but introduce additional overhead due to protocol buff
     - Supports automatic message parsing and structured data transmission.
     - Scales better with complex data structures.
   - **Cons:** 
-    - Larger message sizes due to Protobuf encoding.
+    - Larger metadata overhead due to Protobuf encoding.
     - Potentially slower due to extra serialization/deserialization steps.
 
 ### Observations and Trade-offs
 Experimental results are available in the `test/benchmarking_protocols.ipynb` notebook. The graphs shown at the end of the notebook help validate our hypothesis and provide a visual confirmation of the performance differences between the two protocols.
-- **Data Size Comparison:**  gRPC messages are significantly larger compared to Custom Protocol messages, specifically, gRPC messages are approximately 2x to 3x larger than their Custom Protocol counterparts. This makes sense as the extra size in gRPC comes from Protobuf serialization overhead and structural metadata. Custom Protocol minimizes redundancy by transmitting only essential data, avoiding extra field labels.
-- **Performance (execution time) Comparison:** Custom Protocol is consistently faster than gRPC in all operations, specifically, Custom Protocol is ~3-4x faster than gRPC for register, login, and chat retrieval. The biggest time difference is in message sending, where gRPC takes longer due to serialization and network overhead. Parsing overhead in gRPC results in slower response times compared to the simpler, string-based Custom Protocol. 
+- **Data Size Comparison:**  
+    - Withoout metadata: For most operations, gRPC and Custom Protocol had similar message sizes, except for "Send Message", where gRPC was significantly larger. This was most likely due to the message having single field "msg_id" therefore our custom protocol not having field keys at all outperformed gRPC. 
+    - With metadata: For all operationsm, gRPC data sizes (including metadata) are approximately 2x to 3x larger than their Custom Protocol counterparts. The extra size in gRPC comes from mostly the structural metadata.
 - **Maintenance:** The tight coupling of opcode handling in the custom protocol has led to occasional errors, particularly when expanding functionality. Custom Protocol optimizes for minimal size but sacrifices flexibility.
-- **Flexibility vs. Efficiency:** The larger gRPC message size is a cost of using a more structured and type-safe approach. gRPC's additional time cost is justified by built-in reliability and structured communication. Custom Protocol, while faster, is harder to scale with complex data formats.
+- **Flexibility vs. Efficiency:** The larger gRPC request size is a cost of using a more structured and type-safe approach. gRPC's additional time cost is justified by built-in reliability and structured communication. Custom Protocol, while faster, is harder to scale with complex data formats.
 
 
 ### Conclusion
