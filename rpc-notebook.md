@@ -117,7 +117,7 @@ We will confirm these improvements by measuring:
 ## 5. Next Steps
 
 1. **Measure Performance:**  
-   - Benchmark message sizes and latency between the custom protocols and gRPC.
+   - Benchmark message sizes between the custom protocols and gRPC.
 
 2. **Expand Functionality:**  
    - Check if there's bugs or other functionalities that need to be completed.
@@ -132,7 +132,7 @@ We will confirm these improvements by measuring:
 
 ---
 
-## Implemented Benchmarking for Message Size and Message Efficiency
+## Implemented Benchmarking for Message Size
 
 ### Overview
 We benchmarked two communication protocols—**custom** and **gRPC**—to evaluate differences in Message Size (Data Overhead). The goal was to evaluate which protocol is more efficient and lightweight in handling operations such as: Registering a user, Logging in, Sending a message, Retrieving chat history, Deleting account, Deleting message.
@@ -158,7 +158,7 @@ To measure data size, we first directly meassured Protobuf-encoded message size 
     - Potentially slower due to extra serialization/deserialization steps.
 
 ### Observations and Trade-offs
-Experimental results are available in the `test/benchmarking_protocols.ipynb` notebook. The graphs shown at the end of the notebook help validate our hypothesis and provide a visual confirmation of the performance differences between the two protocols.
+Experimental results are available in the `test/benchmarking_protocols.ipynb` notebook. The graphs shown at the end of the notebook help validate our hypothesis and provide a visual confirmation of the data size differences between the two protocols.
 - **Data Size Comparison:**  
     - Withoout metadata: For most operations, gRPC and Custom Protocol had similar message sizes, except for "Send Message", where gRPC was significantly larger. This was most likely due to the message having single field "msg_id" therefore our custom protocol not having field keys at all outperformed gRPC. 
     - With metadata: For all operationsm, gRPC data sizes (including metadata) are approximately 2x to 3x larger than their Custom Protocol counterparts. The extra size in gRPC comes from mostly the structural metadata.
@@ -167,7 +167,7 @@ Experimental results are available in the `test/benchmarking_protocols.ipynb` no
 
 
 ### Conclusion
-Our benchmarking results show a clear trade-off between speed/size efficiency (Custom Protocol) and scalability/maintainability (gRPC). We conclude that Custom Protocol is best for speed-critical, lightweight messaging apps and gRPC is better for scalable, structured applications with complex data. Moving forward, we might also explore hybrid solutions where Custom Protocol is used for real-time messaging, while gRPC is used for backend services that might balance performance with flexibility.
+Our benchmarking results show a slight trade-off between size efficiency (Custom Protocol) (especially for smaller messages) and scalability/maintainability (gRPC). We conclude that Custom Protocol is best for speed-critical, lightweight messaging apps and gRPC is better for scalable, structured applications with complex data. Moving forward, we might also explore hybrid solutions where Custom Protocol is used for real-time messaging, while gRPC is used for backend services that might balance performance with flexibility.
 
 ---
 
@@ -180,5 +180,17 @@ In this phase of the project, we:
 - Solved challenging issues around multi-threading, event handling, and error management.
 
 The work so far has demonstrated the feasibility and benefits of migrating to gRPC. The next phase will focus on performance optimization, error handling refinement, and expanding the application's features.
+
+## 7. Reflections
+We attempt to address the following questions:
+- Does the use of this tool make the application easier or more difficult?
+  - The use of gRPC makes the application easier as it removes all the manual parsing and message construction logic and instead uses gRPC stubs to call methods. 
+  - Additionally, Protobuf must follow a defined structure which prevents inconsistent messages that makes the applicaiton less error prone while having high flexibility for modifications so gRPC makes long-term maintenance easier. We see this most clearly in how new fields can be added to Protobuf messages without breaking compatibility and requiring many changes. 
+- How does it change the structure of the client?
+  - The client no longer has to format messages and send them over a socket. Instead, the client now uses an auto-generated stub and calls methods directly to interact with the server. The data that is sent to server is more structured as it uses Protobuf and there is no more need to manually format requests or parse responses.
+- How does it change the structure of the server?
+  - The server doesn’t handle raw sockets manually anymore and gRPC automatically routes incoming requests to the correct function based on the proto definition, and instead of manually parsing data, the server implements gRPC service methods. Previously, the server also had to deal with handling concurrent connections using asyn sockets, but now gRPC is Multi-Threaded by default so the concurrency is built-in. 
+-  How does this change the testing of the application?
+  - Preivously, to implement unit tests we had to create mock sockets to simulate server responses. Now we can just use a gRPC stub hat allow function calls without real network communication. Errors are also caught not by string matching but by the built-in error handling property of gRPC. 
 
 *End of Notebook Entry*
