@@ -1,2 +1,4 @@
 PyQt5
 pytest
+grpcio
+grpcio-tools

@@ -8,7 +8,8 @@ Date: 2024-2-6
 import json
 from server import database
 from configs.config import *
-from server.utils import active_clients
+
+import server.utils as utils
 
 PROTOCOL_VERSION = "2.0"
 
@@ -50,13 +51,15 @@ def handle_create(data):
     success, errno = database.register_account(username, password)
     if success:
         push_user = wrap_message("PUSH_USER", [username])
-        for user, sock in active_clients.items():
-            if user != username:
-                try:
-                    debug(f"Server: pushing message: {push_user}")
-                    sock.sendall(push_user.encode('utf-8') + b"\n")
-                except Exception as e:
-                    print(f"Failed to push message to {user}: {e}")
+        
+        with utils.active_clients_lock:
+            for user, sock in utils.active_clients.items():
+                if user != username:
+                    try:
+                        debug(f"Server: pushing message: {push_user}")
+                        sock.sendall(push_user.encode('utf-8') + b"\n")
+                    except Exception as e:
+                        print(f"Failed to push message to {user}: {e}")
         return handle_get_conversations(username, REG_PG)
     else:
         return wrap_message("ERROR", [errno])
@@ -68,8 +71,10 @@ def handle_login(data):
     """
     username, password = data[0], data[1]
     success, errno = database.verify_login(username, password)
-    if username in active_clients:
-        return wrap_message("ERROR", [USER_LOGGED_ON])
+    
+    with utils.active_clients_lock:
+        if username in utils.active_clients:
+            return wrap_message("ERROR", [USER_LOGGED_ON])
     if success:
         return handle_get_conversations(username, LGN_PG)
     else:
@@ -149,13 +154,15 @@ def handle_send_message(data):
     
     # Send the message to the recipient if they are online
     push_message = wrap_message("PUSH_MSG", [sender, str(msg_id), message])
-    if recipient in active_clients:
-        recipient_sock = active_clients[recipient]
-        try:
-            debug(f"Server: pushing message: {push_message}")
-            recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
-        except Exception as e:
-            print(f"Failed to push message to {recipient}: {e}")
+    
+    with utils.active_clients_lock:
+        if recipient in utils.active_clients:
+            recipient_sock = utils.active_clients[recipient]
+            try:
+                debug(f"Server: pushing message: {push_message}")
+                recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
+            except Exception as e:
+                print(f"Failed to push message to {recipient}: {e}")
     
     return wrap_message("ACK", [str(msg_id)])
 
@@ -170,13 +177,15 @@ def handle_delete_messages(data):
     recipient, sender, unread, errno = database.delete_message(msg_id)
     if recipient:
         response = wrap_message("DEL_MSG", [str(msg_id), sender, unread])
-        if recipient in active_clients:
-            recipient_sock = active_clients[recipient]
-            try:
-                debug(f"Server: pushing message: {response}")
-                recipient_sock.sendall(response.encode('utf-8') + b"\n")
-            except Exception as e:
-                print(f"Failed to push message to {recipient}: {e}")
+        
+        with utils.active_clients_lock:
+            if recipient in utils.active_clients:
+                recipient_sock = utils.active_clients[recipient]
+                try:
+                    debug(f"Server: pushing message: {response}")
+                    recipient_sock.sendall(response.encode('utf-8') + b"\n")
+                except Exception as e:
+                    print(f"Failed to push message to {recipient}: {e}")
         return response
     else:
         return wrap_message("ERROR", [errno])
@@ -191,7 +200,7 @@ def handle_delete_account(data):
     username = data[0]
     errno = database.deactivate_account(username)
     if errno == SUCCESS:
-        del active_clients[username]
+        utils.remove_active_client(username)
         return wrap_message("DEL_ACC", [])
     else:
         return wrap_message("ERROR", [errno])

@@ -5,39 +5,27 @@ Author: Henry Huang and Bridget Ma
 Date: 2024-2-6
 """
 
+import sys
 import selectors
 import socket
 import types
-from . import database  # database module for registration/login
-
-import server.protocols.custom_protocol as custom_protocol
+import server.utils as utils
+from . import database
 from configs.config import *
-from server.utils import active_clients
-
-# Create a default selector
-sel = selectors.DefaultSelector()
-
-def accept_wrapper(sock):
-    """Accept new connections and register them."""
-    conn, addr = sock.accept()
-    print(f"Accepted connection from {addr}")
-    conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"", username=None)
-    events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    sel.register(conn, events, data=data)
-
-import selectors
-import socket
-import types
-from . import database  # database module for registration/login
-from server.utils import active_clients
-from configs.config import UNSUPPORTED_VERSION, SERVER_HOST, SERVER_PORT, debug
 
 # Import both protocol modules.
 import server.protocols.custom_protocol as custom_protocol
 import server.protocols.json_protocol as json_protocol
 
+# gRPC imports
+import chat_service_pb2_grpc
+import grpc
+import threading
+from concurrent import futures
+from server.protocols.grpc_server_protocol import MyChatService
+
 sel = selectors.DefaultSelector()
+actual_address = None
 
 def accept_wrapper(sock):
     """Accept new connections and register them."""
@@ -47,6 +35,7 @@ def accept_wrapper(sock):
     data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"", username=None)
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
     sel.register(conn, events, data=data)
+    utils.add_passive_client(addr, conn)  # Add to passive clients
 
 def service_connection(key, mask):
     """Handles client-server communication."""
@@ -79,7 +68,8 @@ def service_connection(key, mask):
                     if command in ("LOGIN", "CREATE") and not response.startswith("1.0 ERROR"):
                         username = args[0]
                         data.username = username
-                        active_clients[username] = sock
+                        utils.add_active_client(username, sock)
+                        utils.add_rpc_send_queue_user(username)
                         debug(f"User {username} is now online (Custom protocol).")
                 elif message_str.startswith("2.0"):
                     # Process using the JSON protocol.
@@ -88,7 +78,8 @@ def service_connection(key, mask):
                     if opcode in ("LOGIN", "CREATE") and not "ERROR" in response:
                         username = msg_data[0]
                         data.username = username
-                        active_clients[username] = sock
+                        utils.add_active_client(username, sock)
+                        utils.add_rpc_send_queue_user(username)
                         debug(f"User {username} is now online (JSON protocol).")
                 else:
                     # Unsupported protocol version; return error message.
@@ -102,7 +93,7 @@ def service_connection(key, mask):
                     data.outb += response.encode("utf-8") + b"\n"
         else:
             if data.username:
-                active_clients.pop(data.username, None)
+                utils.remove_active_client(data.username)
                 debug(f"User {data.username} disconnected.")
             sel.unregister(sock)
             sock.close()
@@ -132,13 +123,32 @@ def get_local_ip():
         s.close()
     return ip
 
+def create_rpc_threads():
+    """Create and start gRPC server threads on the specified port + 1."""
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    chat_service_pb2_grpc.add_ChatServiceServicer_to_server(MyChatService(), server)
+    
+    port_to_use = actual_address[1] + 1
+    grpc_address = f"{actual_address[0]}:{port_to_use}"
+    
+    # Attempt to bind the gRPC server to the specified address.
+    bound_port = server.add_insecure_port(grpc_address)
+    
+    # Check if the binding was successful.
+    if bound_port == 0:
+        print(f"Error: Port {port_to_use} is in use. Please try again with a different configuration.")
+        sys.exit(1)
+    
+    server.start()
+    server.wait_for_termination()
+
 if __name__ == "__main__":
     # Initialize the database (create tables, etc.)
     database.initialize_db()
 
     # Get the current local IP address.
     local_ip = get_local_ip()
-
+    
     lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Bind to the current IP address and port 0 (random available port)
     lsock.bind((local_ip, 0))
@@ -148,7 +158,12 @@ if __name__ == "__main__":
     print("Listening on", actual_address)
     lsock.setblocking(False)
     sel.register(lsock, selectors.EVENT_READ, data=None)
+    
+    # Start the gRPC server in a separate thread.
+    grpc_thread = threading.Thread(target=create_rpc_threads, daemon=True)
+    grpc_thread.start()
 
+    # Main event loop to handle incoming connections and messages for protocol 1.0 and 2.0
     try:
         while True:
             events = sel.select(timeout=None)

@@ -70,10 +70,8 @@ def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1
 def deserialize_chat_history(chat_history):
     """
     Parse a server response of the form:
-      `1.0 MSGS [page code] [num_unreads] [1 if user who sent the ealiest message is same as the user 
-      receiving this history else 0] [num msgs] [msg ID (if 1), num words, msg1] 
-      [msg ID (if 1), num words, msg2] ...`
-    into a list of tuples: [(username, msg ID, message), (username, msg ID, message), ...].
+      `1.0 MSGS [flag] [num_msgs] [msg1 details] [msg2 details] ...` 
+      into a list of tuples: [(username, msg ID, message), (username, msg ID, message), ...].
     """
     if not chat_history:
         return []
@@ -81,11 +79,15 @@ def deserialize_chat_history(chat_history):
     is_client = int(chat_history[0])
     ind = 1
     while ind < len(chat_history):
+        debug(f"ind: {ind}, chat_history: {chat_history}")
         try:
             num_messages = int(chat_history[ind])
             ind += 1
         except ValueError:
-            num_messages = 0
+            # Skip this element to prevent infinite loop.
+            debug(f"Invalid number at index {ind}: {chat_history[ind]}")
+            ind += 1
+            continue
         while num_messages > 0 and ind < len(chat_history):
             try:
                 id = int(chat_history[ind])
@@ -117,7 +119,9 @@ def handle_users(args, Client):
     """Handles a list of users sent from server."""
     page_code = int(args[0])
     username = args[1]
+    Client.username = username
     convo_list = deserialize_chat_conversations(args[2:])
+    Client.start_live_updates() # Start the live updates thread (to receive gRPC updates)
     if page_code == REG_PG:
         Client.register_page.registerSuccessful.emit(username, convo_list)
     elif page_code == LGN_PG:
@@ -128,8 +132,6 @@ def handle_incoming_message(args, Client):
     sender = args[0]
     msg_id = int(args[1])
     message = " ".join(args[2:])
-    
-    debug("HALLO")
 
     # Notify the UI to update the chat if in conversation with sender
     if Client.cur_convo == sender:

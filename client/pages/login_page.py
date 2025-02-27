@@ -108,7 +108,7 @@ class LoginPage(QWidget):
         password = self.passwordEdit.text().strip()
         if username and password:
             hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
-            request = create_login_request(username, hashed_password)
+            request = create_login_request(self.Client, username, hashed_password)
             self.Client.send_request(request)
         else:
             QMessageBox.critical(self, "Login Error", "Please enter both username and password.")

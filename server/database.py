@@ -130,6 +130,8 @@ def verify_valid_recipient(recipient):
     cur.execute("SELECT deactivated FROM accounts WHERE username = ?", (recipient,))
     row = cur.fetchone()
     conn.close()
+    if not row:
+        return DB_ERROR
     
     return abs(1-row["deactivated"])
 

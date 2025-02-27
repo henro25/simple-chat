@@ -1,8 +1,7 @@
 """
 Module Name: protocol_interface.py
 Description: Redirects protocol function calls to either the custom protocol or the JSON protocol
-             based on the CUR_PROTO_VERSION value. If the current protocol version is not supported,
-             an error message is returned.
+             based on the CUR_PROTO_VERSION value. If the current protocol version is not supported, an error message is returned.
 Author: Henry Huang and Bridget Ma
 Date: 2024-2-12
 """
@@ -11,7 +10,8 @@ import configs.config as config
 import client.protocols.custom_protocol as custom_protocol
 import client.protocols.json_protocol as json_protocol
 
-from configs.config import debug
+# gRPC import
+import chat_service_pb2
 
 def unsupported_error():
     return f"{config.CUR_PROTO_VERSION} ERROR {config.UNSUPPORTED_VERSION}"
@@ -24,20 +24,42 @@ def parse_message(message):
     else:
         return unsupported_error()
 
-def create_registration_request(username, password):
+def create_registration_request(Client, username, password):
     if config.CUR_PROTO_VERSION == "1.0":
         return custom_protocol.create_registration_request(username, password)
     elif config.CUR_PROTO_VERSION == "2.0":
         # For JSON, we assume that wrapping a message with opcode "CREATE" is equivalent.
         return json_protocol.create_registration_request(username, password)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        if Client.sock is None:
+            raise ValueError("Client.sock has not been initialized.")
+        ip_address, port = Client.sock.getsockname()  # Returns (IP, port)
+        
+        return chat_service_pb2.RegisterRequest(
+            username=username, 
+            password=password, 
+            ip_address=ip_address, 
+            port=port
+        )
     else:
         return unsupported_error()
 
-def create_login_request(username, password):
+def create_login_request(Client, username, password):
     if config.CUR_PROTO_VERSION == "1.0":
         return custom_protocol.create_login_request(username, password)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_login_request(username, password)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        if Client.sock is None:
+            raise ValueError("Client.sock has not been initialized.")
+        ip_address, port = Client.sock.getsockname()  # Returns (IP, port)
+        
+        return chat_service_pb2.LoginRequest(
+            username=username, 
+            password=password, 
+            ip_address=ip_address, 
+            port=port
+        )
     else:
         return unsupported_error()
 
@@ -46,6 +68,8 @@ def create_delete_account_request(username):
         return custom_protocol.create_delete_account_request(username)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_delete_account_request(username)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.DeleteAccountRequest(username=username)
     else:
         return unsupported_error()
 
@@ -63,6 +87,8 @@ def create_chat_history_request(username, other_user, num_msgs, oldest_msg_id=-1
         return custom_protocol.create_chat_history_request(username, other_user, num_msgs, oldest_msg_id)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_chat_history_request(username, other_user, num_msgs, oldest_msg_id)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.ChatHistoryRequest(username=username, other_user=other_user, num_msgs=num_msgs, oldest_msg_id=oldest_msg_id)
     else:
         return unsupported_error()
 
@@ -79,6 +105,8 @@ def create_send_message_request(username, other_user, message):
         return custom_protocol.create_send_message_request(username, other_user, message)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_send_message_request(username, other_user, message)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.SendMessageRequest(sender=username, recipient=other_user, text=message)
     else:
         return unsupported_error()
 
@@ -87,6 +115,8 @@ def create_delete_message_request(msg_id):
         return custom_protocol.create_delete_message_request(msg_id)
     elif config.CUR_PROTO_VERSION == "2.0":
         return json_protocol.create_delete_message_request(msg_id)
+    elif config.CUR_PROTO_VERSION == "3.0":
+        return chat_service_pb2.DeleteMessageRequest(msg_id=msg_id)
     else:
         return unsupported_error()
 

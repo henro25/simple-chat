@@ -1,0 +1,252 @@
+syntax = "proto3";
+
+package chat;
+
+service ChatService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Register(RegisterRequest) returns (LoginResponse);
+  rpc GetChatHistory(ChatHistoryRequest) returns (ChatHistoryResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+  rpc AckPushMessage(AckPushMessageRequest) returns (AckPushMessageResponse);
+
+  // Bi-directional streaming RPC for live updates after logging in or registering
+  rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
+}
+
+// ------------------------------
+// Authentication
+// ------------------------------
+
+// Request for logging in
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string ip_address = 3;
+  int32 port = 4;
+}
+
+// Request for logging in
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+  string ip_address = 3;
+  int32 port = 4;
+}
+
+// Define a message for a user's unread count.
+message UserUnread {
+  string username = 1;
+  int32 unread_count = 2;
+}
+
+// Updated LoginResponse to include a page code, the client username,
+// and a list of users with their unread counts.
+message LoginResponse {
+  int32 errno = 1;
+  int32 page_code = 2;                  // e.g., 10
+  string client_username = 3;           // e.g., "henro"
+  repeated UserUnread user_unreads = 4; // List of other users and their unread counts.
+}
+
+// ------------------------------
+// Chat History Messages
+// ------------------------------
+
+/**
+ * Request to fetch a conversation's history.
+ *
+ * Fields:
+ * - username: The requesting user's username.
+ * - other_user: The other user in the conversation.
+ * - num_msgs: The number of messages to fetch.
+ * - oldest_msg_id: Starting message id (-1 indicates to fetch the most recent messages).
+ */
+message ChatHistoryRequest {
+  string username = 1;
+  string other_user = 2;
+  int32 num_msgs = 3;
+  int32 oldest_msg_id = 4;
+}
+
+/**
+ * A single chat message.
+ *
+ * Fields:
+ * - sender: The username of the sender of the message
+ * - message_id: Unique identifier for the message.
+ * - text: The actual message text.
+ */
+message Message {
+  string sender = 1;
+  int32 msg_id = 2;
+  string text = 3;
+}
+
+/**
+ * Response for a chat history request.
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function)
+ * - page_code: Identifier for the conversation or page.
+ * - unread_count: The number of unread messages in the conversation.
+ * - chat_history: A list of messages.
+ */
+message ChatHistoryResponse {
+  int32 errno = 1;
+  int32 page_code = 2;
+  int32 unread_count = 3;
+  repeated Message chat_history = 4; 
+}
+
+// ------------------------------
+// Send Message
+// ------------------------------
+
+/**
+ * A send message request
+ *
+ * Fields:
+ * - sender: The username of the sender of the message
+ * - recipient: The username of the recipient of the message
+ * - text: The actual message text.
+ */
+message SendMessageRequest {
+  string sender = 1;
+  string recipient = 2;
+  string text = 3;
+}
+
+/**
+ * An acknowledgement of a send message request
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function)
+ * - msg_id: The message id of the message sent
+ */
+message SendMessageResponse {
+  int32 errno = 1;
+  int32 msg_id = 2;
+}
+
+// ------------------------------
+// Delete Message
+// ------------------------------
+
+/**
+ * A delete message request
+ *
+ * Fields:
+ * - msg_id: The message id of the message deleted
+ */
+message DeleteMessageRequest {
+  int32 msg_id = 1;
+}
+
+/**
+ * An response of a delete message request
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function)
+ * - sender: The username of the sender
+ * - msg_id: The message id to delete
+ * - read_status: `1` if the message was unread, `0` if it had already been read.
+ */
+message DeleteMessageResponse {
+  int32 errno = 1;
+  string sender = 2;
+  int32 msg_id = 3;
+  int32 read_status = 4;
+}
+
+
+// ------------------------------
+// Delete Account
+// ------------------------------
+
+/**
+ * A delete account request
+ *
+ * Fields:
+ * - username: The username of the account to delete
+ */
+message DeleteAccountRequest {
+  string username = 1;
+}
+
+/**
+ * An response of a delete account request
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function)
+ */
+message DeleteAccountResponse {
+  int32 errno = 1;
+}
+
+// ------------------------------
+// Live Updates
+// ------------------------------
+
+// Request to subscribe to live updates
+message LiveUpdateRequest {
+  string username = 1;
+}
+
+// Define a PushMessage message
+message PushMessage {
+  int32 errno = 1;
+  string sender = 2;
+  int32 msg_id = 3;
+  string text = 4;
+}
+
+// Define a PushUser message
+message PushUser {
+  int32 errno = 1;
+  string username = 2;
+}
+
+// Define a PushDeleteMsg message
+message PushDeleteMsg {
+  int32 errno = 1;
+  int32 msg_id = 2;
+  string sender = 3;
+  int32 read_status = 4;
+}
+
+// Message containing live update data from the server.
+// Using a oneof field to allow for different types of updates,
+// including the new PushMessage.
+message LiveUpdate {
+  oneof update {
+    PushMessage push_message = 1;
+    PushUser push_user = 2;
+    PushDeleteMsg push_delete_msg = 3;
+  }
+}
+
+// ------------------------------
+// Ack Push Message
+// ------------------------------
+
+/**
+ * Request to acknowledge receipt of a push message.
+ *
+ * Fields:
+ * - msg_id: The message id of the push message being acknowledged.
+ */
+message AckPushMessageRequest {
+  int32 msg_id = 1;
+}
+
+/**
+ * Response for acknowledging a push message.
+ *
+ * Fields:
+ * - errno: The error number (SUCCESS for this function).
+ */
+message AckPushMessageResponse {
+  int32 errno = 1;
+}

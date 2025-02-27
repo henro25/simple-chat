@@ -8,6 +8,7 @@ Date: 2024-2-7
 from server import database
 from configs.config import *
 from server.utils import active_clients
+import server.utils as utils
 
 def parse_message(message):
     """
@@ -37,13 +38,15 @@ def handle_create(args):
     success, errno = database.register_account(username, password)
     if success:
         push_user = f'1.0 PUSH_USER {username}'
-        for user, sock in active_clients.items():
-            if user != username:
-                try:
-                    debug(f"Server: pushing message: {push_user}")
-                    sock.sendall(push_user.encode('utf-8') + b"\n")
-                except Exception as e:
-                    print(f"Failed to push message to {user}: {e}")
+        
+        with utils.active_clients_lock:
+            for user, sock in active_clients.items():
+                if user != username:
+                    try:
+                        debug(f"Server: pushing message: {push_user}")
+                        sock.sendall(push_user.encode('utf-8') + b"\n")
+                    except Exception as e:
+                        print(f"Failed to push message to {user}: {e}")
         return handle_get_conversations(username, REG_PG)
     else:
         return f"1.0 ERROR {errno}"
@@ -143,13 +146,15 @@ def handle_send_message(args):
 
     # Send the message to the recipient if they are online
     push_message = f"1.0 PUSH_MSG {sender} {msg_id} {message}\n"
-    if recipient in active_clients:
-        recipient_sock = active_clients[recipient]
-        try:
-            debug(f"Server: pushing message: {message}")
-            recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
-        except Exception as e:
-            print(f"Failed to push message to {recipient}: {e}")
+    
+    with utils.active_clients_lock:
+        if recipient in active_clients:
+            recipient_sock = active_clients[recipient]
+            try:
+                debug(f"Server: pushing message: {message}")
+                recipient_sock.sendall(push_message.encode('utf-8') + b"\n")
+            except Exception as e:
+                print(f"Failed to push message to {recipient}: {e}")
 
     return f"1.0 ACK {msg_id}"
 
@@ -166,14 +171,16 @@ def handle_delete_messages(args):
     recipient, sender, unread, errno = database.delete_message(id)
     if recipient:
         response = f"1.0 DEL_MSG {id} {sender} {unread}"
-        if recipient in active_clients:
-            print(recipient)
-            recipient_sock = active_clients[recipient]
-            try:
-                debug(f"Server: pushing message: {response}")
-                recipient_sock.sendall(response.encode('utf-8') + b"\n")
-            except Exception as e:
-                print(f"Failed to push message to {recipient}: {e}")
+        
+        with utils.active_clients_lock:
+            if recipient in active_clients:
+                print(recipient)
+                recipient_sock = active_clients[recipient]
+                try:
+                    debug(f"Server: pushing message: {response}")
+                    recipient_sock.sendall(response.encode('utf-8') + b"\n")
+                except Exception as e:
+                    print(f"Failed to push message to {recipient}: {e}")
         return response
     else:
         return f"1.0 ERROR {errno}"
@@ -190,7 +197,7 @@ def handle_delete_account(args):
     username = args[0]
     errno = database.deactivate_account(username)
     if errno==SUCCESS:
-        del active_clients[username]
+        utils.remove_active_client(username)
         return '1.0 DEL_ACC'
     else:
         return f"1.0 ERROR {errno}"

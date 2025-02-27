@@ -28,7 +28,7 @@ class ChatApp(QMainWindow):
         self.resize(250, 400)
         
         # Initialize the client
-        self.Client = Client(SERVER_HOST, SERVER_PORT)
+        self.Client = Client(config.SERVER_HOST, config.SERVER_PORT)
 
         # QStackedWidget to hold different pages
         self.stack = QStackedWidget()
@@ -112,14 +112,18 @@ if __name__ == '__main__':
         sys.exit(1)
 
     config.CUR_PROTO_VERSION = sys.argv[1]
-    SERVER_HOST = sys.argv[2]
+    if config.CUR_PROTO_VERSION not in config.SUPPORTED_VERSIONS:
+        print(f"Error: Protocol version {config.CUR_PROTO_VERSION} is not supported.")
+        sys.exit(1)
+    
+    config.SERVER_HOST = sys.argv[2]
     try:
-        SERVER_PORT = int(sys.argv[3])
+        config.SERVER_PORT = int(sys.argv[3])
     except ValueError:
         print("Error: Server port must be an integer.")
         sys.exit(1)
 
-    print(f"Starting ChatApp with protocol version: {config.CUR_PROTO_VERSION}, server IP: {SERVER_HOST}, server port: {SERVER_PORT}")
+    print(f"Starting ChatApp with protocol version: {config.CUR_PROTO_VERSION}, server IP: {config.SERVER_HOST}, server port: {config.SERVER_PORT}")
 
     app = QApplication(sys.argv)
 
