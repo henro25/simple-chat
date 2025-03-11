@@ -1,4 +1,4 @@
-# Chat Application: gRPC Integration & Fault-Tolerant Replication
+# Fault-Tolerant Replication Engineering Notebook
 
 This document serves as a metadata and engineering notebook entry for re-implementing our chat application backend using gRPC, while adding fault tolerance through replication and persistent storage. It covers design decisions, implementation steps, and answers key questions regarding generated code and network configuration.
 
@@ -8,7 +8,7 @@ This document serves as a metadata and engineering notebook entry for re-impleme
 
 ### 1.1 Current Architecture
 
-- **Client:** A PyQt-based GUI that communicates with a single server via raw sockets using a custom wire protocol (or JSON).  
+- **Client:** A PyQt-based GUI that communicates with a single server via raw sockets using a custom wire protocol (or JSON) and gRPC.
 - **Server:** A single server handling client requests and persisting data in a SQLite database.  
 - **Database:** SQLite is used for persisting user accounts and messages.
 
