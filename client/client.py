@@ -51,6 +51,8 @@ class Client(QObject):
         self.list_convos_page = None  # store the current list convo page the client is on
         self.username = None        # Store username of client
         self.cur_convo = None       # Store username of other user if client on messaging page
+        self.server_list = [(host, port)]       # Store the current server list (updated via live updates).
+        self.current_grpc_endpoint = f'{host}:{port + 1}'       # Set up gRPC: current endpoint is host:port+1.
         self.registered = 0         # Stores state of socket
         self.inb = ""  # Buffer to hold incoming data
         self.channel = grpc.insecure_channel(f'{config.SERVER_HOST}:{config.SERVER_PORT + 1}') # gRPC channel

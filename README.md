@@ -11,16 +11,18 @@ A simple, client-server chat application that allows users to send and receive t
 
 # Running the client and server
 
-Starting the server: in terminal and from the root directory, run `python -m server.server`
+Starting the server: If you run the server without any arguments, it will start as the primary server: in terminal and from the root directory, run `python -m server.server`
 
 Note: the console will return the server IP address and port number that clients can connect to. The server connects to the machine's IP address and a random open port number.
 - Specifically, the console will print: `Listening on ('<server_IP_address>', <port_num>)`
+
+To start a backup (or a new node joining an existing network), pass the bootstrap server’s IP and port: `python -m server.server <bootstrap_server_ip> <bootstrap_server_port>`
 
 Starting the client: 
 
 1. In another terminal window and from the root directory, activate the environment again `source venv/bin/activate`
 2. Run from the root directory `python -m client.main <protocol_version> <server_ip> <server_port>`
-   1. Usage: use 1.0 for custom protocol version and 2.0 for JSON protocol version
+   1. Usage: use 1.0 for custom protocol version, 2.0 for JSON protocol version and 3.0 for gRPC protocol version
    2. Example: `python -m client.main 1.0 127.0.0.1 65432`
 
 # Testing

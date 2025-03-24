@@ -48,6 +48,17 @@ def initialize_db():
             unread INTEGER DEFAULT 1
         )
     """)
+    
+    # Create a table to store active servers.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS servers (
+            ip TEXT NOT NULL,
+            port INTEGER NOT NULL,
+            is_primary INTEGER DEFAULT 0,
+            last_heartbeat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY(ip, port)
+        )
+    """)
 
     conn.commit()
     conn.close()
@@ -399,6 +410,51 @@ def delete_message(message_id):
     conn.close()
     
     return message["recipient"], message["sender"], message["unread"], SUCCESS  # Deletion successful
+
+# ----------------------------
+# Update list of servers
+# ----------------------------
+def add_server(ip, port, is_primary=0):
+    """
+    Add or update a server entry.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT OR REPLACE INTO servers (ip, port, is_primary) VALUES (?, ?, ?)",
+                (ip, port, is_primary))
+    conn.commit()
+    conn.close()
+
+def remove_server(ip, port):
+    """
+    Remove a server from the table.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM servers WHERE ip=? AND port=?", (ip, port))
+    conn.commit()
+    conn.close()
+
+def get_servers():
+    """
+    Return a list of servers as tuples (ip, port, is_primary).
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT ip, port, is_primary FROM servers")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def update_heartbeat(ip, port):
+    """
+    Update the last heartbeat timestamp for a given server.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE servers SET last_heartbeat=CURRENT_TIMESTAMP WHERE ip=? AND port=?", (ip, port))
+    conn.commit()
+    conn.close()
     
 # ----------------------------
 # Additional Utility Functions

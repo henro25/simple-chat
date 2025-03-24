@@ -8,6 +8,10 @@ Date: 2024-2-6
 import threading
 from configs.config import debug
 
+# Global replication configuration
+is_primary = False       # True if this server is the primary
+actual_address = None    # Tuple of (ip, port) for this server
+
 # Active clients dictionary to track logged-in users
 active_clients = {}
 
@@ -71,3 +75,28 @@ def remove_rpc_send_queue_user(username):
         if username in rpc_send_queue:
             del rpc_send_queue[username]
             print(f"User {username} removed from RPC send queue.")
+
+# -------------------------
+# Replication configuration accessors
+# -------------------------
+def set_replication_config(primary, address):
+    """
+    Set the replication configuration globals.
+    
+    Parameters:
+      primary (bool): True if this server is primary.
+      address (tuple): (ip, port) tuple for this server.
+    """
+    global is_primary, actual_address
+    is_primary = primary
+    actual_address = address
+    debug(f"Replication config set: is_primary={is_primary}, actual_address={actual_address}")
+
+def get_replication_config():
+    """
+    Returns the current replication configuration.
+    
+    Returns:
+      tuple: (is_primary, actual_address)
+    """
+    return is_primary, actual_address
