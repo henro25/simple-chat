@@ -2,7 +2,7 @@
 Module Name: gRPC.py
 Description: The gRPC server implementation for handling client requests.
 Author: Henry Huang and Bridget Ma
-Date: 2024-2-17 (updated for replication)
+Date: 2024-2-17 (updated for full replication)
 """
 
 import socket
@@ -36,6 +36,15 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             client_sock = utils.get_passive_client((request.ip_address, request.port))
             utils.add_active_client(request.username, client_sock)
             utils.add_rpc_send_queue_user(request.username)
+            # Replicate registration operation.
+            is_primary, _ = utils.get_replication_config()
+            if is_primary:
+                replicate_to_backups({
+                    "sender": request.username,
+                    "recipient": "",
+                    "text": request.password,  # or the hashed password
+                    "operation": "REGISTER"
+                })
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
                 page_code=REG_PG,
@@ -59,6 +68,15 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             client_sock = utils.get_passive_client((request.ip_address, request.port))
             utils.add_active_client(request.username, client_sock)
             utils.add_rpc_send_queue_user(request.username)
+            # Replicate login operation so that backups know the user is active.
+            is_primary, _ = utils.get_replication_config()
+            if is_primary:
+                replicate_to_backups({
+                    "sender": request.username,
+                    "recipient": "",
+                    "text": f"{request.username},{request.ip_address},{request.port}",
+                    "operation": "LOGIN"
+                })
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
                 page_code=LGN_PG,
@@ -84,6 +102,20 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             )
             chat_messages.append(msg)
         utils.debug(f"{username} read {unread_count} unread messages from {other_user}")
+        read_ids = [message["id"] for message in history]
+        # Replicate chat history operation if it changed read status.
+        if unread_count > 0 and read_ids:
+            is_primary, _ = utils.get_replication_config()
+            if is_primary:
+                # Here, we simply replicate that the user has read messages;
+                # you could also send specific message IDs if your database supports that.
+                ids_str = ",".join(str(mid) for mid in read_ids)
+                replicate_to_backups({
+                    "sender": username,
+                    "recipient": other_user,
+                    "text": ids_str,
+                    "operation": "READ_HISTORY"
+                })
         return chat_service_pb2.ChatHistoryResponse(
             errno=SUCCESS,
             page_code=page_code,
@@ -98,7 +130,6 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         msg_id = -1
         if database.verify_valid_recipient(recipient) == 1:
             msg_id = database.store_message(sender, recipient, message)
-            # Check replication config using utils.
             is_primary, _ = utils.get_replication_config()
             if is_primary:
                 replicate_to_backups({
@@ -156,6 +187,14 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
     def DeleteAccount(self, request, context):
         errno = database.deactivate_account(request.username)
         if errno == SUCCESS:
+            is_primary, _ = utils.get_replication_config()
+            if is_primary:
+                replicate_to_backups({
+                    "sender": request.username,
+                    "recipient": "",
+                    "text": request.username,
+                    "operation": "DELETE_ACCOUNT"
+                })
             self._cleanup_client_stream(request.username)
             return chat_service_pb2.DeleteAccountResponse(errno=SUCCESS)
         else:
@@ -165,6 +204,14 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         utils.debug(f"Received AckPushMessage: {request}")
         msg_id = request.msg_id
         database.mark_message_as_read(msg_id)
+        is_primary, _ = utils.get_replication_config()
+        if is_primary:
+            replicate_to_backups({
+                "sender": "",
+                "recipient": "",
+                "text": str(msg_id),
+                "operation": "ACK"
+            })
         return chat_service_pb2.AckPushMessageResponse(errno=SUCCESS)
 
     def UpdateStream(self, request_iterator, context):
@@ -200,13 +247,13 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         utils.remove_rpc_send_queue_user(username)
         
     def JoinNetwork(self, request, context):
+        utils.debug(f"JoinNetwork request received from server {request.server_ip}:{request.server_port}")
         found = False
         for server in utils.active_servers:
             if server.ip == request.server_ip and server.port == request.server_port:
                 found = True
                 break
         if not found:
-            # Add the new backup server info.
             new_server = type("ServerInfo", (), {})()
             new_server.ip = request.server_ip
             new_server.port = request.server_port
@@ -248,9 +295,9 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             recipient, sender, unread, errno = database.delete_message(msg_id)
             if recipient:
                 with utils.rpc_send_queue_lock:
-                    if recipient in utils.rpc_send_queue:
-                        utils.debug(f"Replication: appending push DELETE message to {recipient} via gRPC")
-                        utils.rpc_send_queue[recipient].append(
+                    if request.recipient in utils.rpc_send_queue:
+                        utils.debug(f"Replication: appending push DELETE message to {request.recipient} via gRPC")
+                        utils.rpc_send_queue[request.recipient].append(
                             chat_service_pb2.PushDeleteMsg(
                                 errno=SUCCESS,
                                 msg_id=msg_id,
@@ -258,6 +305,36 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                                 read_status=unread
                             )
                         )
+        elif operation == "ACK":
+            try:
+                msg_id = int(request.text)
+                database.mark_message_as_read(msg_id)
+                utils.debug(f"Replication: ACK replicated for message id {msg_id}")
+            except Exception as e:
+                utils.debug(f"Replication ACK error: {e}")
+                errno = DB_ERROR
+        elif operation == "REGISTER":
+            success, reg_errno = database.register_account(request.username, request.text)
+            if not success:
+                utils.debug(f"Replication: registration failed for {request.username} with error {reg_errno}")
+                errno = reg_errno
+        elif operation == "DELETE_ACCOUNT":
+            reg_errno = database.deactivate_account(request.text)  # request.text carries the username.
+            if reg_errno != SUCCESS:
+                utils.debug(f"Replication: account deletion failed for {request.text} with error {reg_errno}")
+                errno = reg_errno
+        elif operation == "LOGIN":
+            # Replicate login by marking the user as active.
+            utils.add_active_client(request.username, None)
+            utils.debug(f"Replication: LOGIN replicated for user {request.username}")
+        elif operation == "READ_HISTORY":
+            # Replicate chat history read operation.
+            ids_str = request.text  # e.g., "101,102,103"
+            msg_ids = [int(x) for x in ids_str.split(",") if x]
+            for msg_id in msg_ids:
+                database.mark_message_as_read(msg_id)
+            utils.debug(f"Replication: READ_HISTORY replicated for user {request.username} in conversation with {request.recipient}")
+            # Optionally, call a database function to update read status on backups.
         else:
             utils.debug(f"Unknown replication operation: {operation}")
             errno = DB_ERROR
@@ -279,12 +356,15 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
 # ---------------------------
 def replicate_to_backups(message_data):
     """
-    Replicate a client write operation (SEND or DELETE) to all backup servers.
+    Replicate a client operation to all backup servers.
     message_data is a dictionary containing:
       - sender
       - recipient
-      - text (for SEND: the message text; for DELETE: the message id as string)
-      - operation ("SEND" or "DELETE")
+      - text (for SEND: message text; for DELETE/ACK: message id as string;
+              for REGISTER: password or hashed password; for DELETE_ACCOUNT: username;
+              for LOGIN: a comma-separated string of username, ip, and port;
+              for READ_HISTORY: can be a flag or comma-separated list of message IDs)
+      - operation ("SEND", "DELETE", "ACK", "REGISTER", "DELETE_ACCOUNT", "LOGIN", "READ_HISTORY")
     """
     import grpc
     _, actual_addr = utils.get_replication_config()
@@ -296,8 +376,8 @@ def replicate_to_backups(message_data):
             channel = grpc.insecure_channel(backup_grpc_address)
             stub = chat_service_pb2_grpc.ChatServiceStub(channel)
             replication_req = chat_service_pb2.ReplicationRequest(
-                sender=message_data["sender"],
-                recipient=message_data["recipient"],
+                sender=message_data.get("sender", ""),
+                recipient=message_data.get("recipient", ""),
                 text=message_data["text"],
                 operation=message_data["operation"]
             )
