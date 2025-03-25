@@ -6,6 +6,10 @@ package chat;
 // Existing Request/Response messages
 // ------------------------
 
+message LiveUpdateRequest {
+  string username = 1;
+}
+
 message LoginRequest {
   string username = 1;
   string password = 2;
@@ -174,7 +178,7 @@ service ChatService {
   rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
   rpc AckPushMessage(AckPushMessageRequest) returns (AckPushMessageResponse);
-  rpc UpdateStream(stream LoginRequest) returns (stream LiveUpdate);
+  rpc UpdateStream(stream LiveUpdateRequest) returns (stream LiveUpdate);
   rpc JoinNetwork(JoinNetworkRequest) returns (JoinNetworkResponse);
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
   rpc ReplicateWrite(ReplicationRequest) returns (ReplicationResponse);

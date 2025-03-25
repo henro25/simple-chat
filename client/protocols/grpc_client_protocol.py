@@ -52,7 +52,7 @@ def handle_chat_history(Client, response):
     else:
         if Client.messaging_page.num_unread > 0:
             Client.messaging_page.updateUnreadCount(num_unreads)
-            Client.listConvosPage.updateAfterRead(num_unreads)
+            Client.list_convos_page.updateAfterRead(num_unreads)
         Client.messaging_page.addChatHistory(chat_history)
         
 def handle_ack(Client, response):
@@ -71,17 +71,17 @@ def handle_delete_msg(Client, response):
         Client.messaging_page.removeMessageDisplay(msg_id)
     else:
         if unread:
-            Client.listConvosPage.num_unreads[sender] -= 1
-            ind = Client.listConvosPage.convo_order.index(sender)
-            del Client.listConvosPage.convo_order[ind]
-            Client.listConvosPage.convo_order.insert(0, sender)
-            Client.listConvosPage.refresh(0)
+            Client.list_convos_page.num_unreads[sender] -= 1
+            ind = Client.list_convos_page.convo_order.index(sender)
+            del Client.list_convos_page.convo_order[ind]
+            Client.list_convos_page.convo_order.insert(0, sender)
+            Client.list_convos_page.refresh(0)
 
 def handle_delete_acc(Client):
     """
     Handles an account deletion notification.
     """
-    Client.listConvosPage.successfulAccountDel()
+    Client.list_convos_page.successfulAccountDel()
     
 def handle_incoming_message(Client, push_msg):
     """Handles an incoming message pushed from the server."""
@@ -95,20 +95,20 @@ def handle_incoming_message(Client, push_msg):
         Client.messaging_page.displayIncomingMessage(sender, msg_id, message)
         Client.stub.AckPushMessage(chat_service_pb2.AckPushMessageRequest(msg_id=msg_id))
     else:
-        Client.listConvosPage.num_unreads[sender] += 1
-        ind = Client.listConvosPage.convo_order.index(sender)
-        del Client.listConvosPage.convo_order[ind]
-        Client.listConvosPage.convo_order.insert(0, sender)
-        Client.listConvosPage.refresh(0)
+        Client.list_convos_page.num_unreads[sender] += 1
+        ind = Client.list_convos_page.convo_order.index(sender)
+        del Client.list_convos_page.convo_order[ind]
+        Client.list_convos_page.convo_order.insert(0, sender)
+        Client.list_convos_page.refresh(0)
 
 def handle_push_user(Client, push_user):
     """
     Handles a new user pushed from the server.
     """
     new_user = push_user.username
-    Client.listConvosPage.convo_order.append(new_user)
-    Client.listConvosPage.num_unreads[new_user] = 0
-    Client.listConvosPage.displayConvo(new_user)
+    Client.list_convos_page.convo_order.append(new_user)
+    Client.list_convos_page.num_unreads[new_user] = 0
+    Client.list_convos_page.displayConvo(new_user)
 
 def handle_server_list_update(Client, push_server_list_update):
     """

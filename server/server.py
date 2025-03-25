@@ -23,13 +23,11 @@ import server.protocols.json_protocol as json_protocol
 
 # gRPC imports
 import chat_service_pb2_grpc
+import chat_service_pb2
 import grpc
 from server.protocols.grpc_server_protocol import MyChatService
 
 sel = selectors.DefaultSelector()
-
-# Global variable to hold active server endpoints (in-memory mirror of persistent store)
-active_servers = []  # Each element is an object with attributes: ip, port, is_primary
 
 def accept_wrapper(sock):
     """Accept new connections and register them."""
@@ -138,23 +136,21 @@ def join_network(bootstrap_ip, bootstrap_port):
             server_port=utils.actual_address[1]
         )
         join_resp = stub.JoinNetwork(join_req)
-        global active_servers
-        active_servers = []
+        utils.active_servers.clear()
         for s in join_resp.server_list:
             server_info = type("ServerInfo", (), {})()
             server_info.ip = s.ip
             server_info.port = s.port
             server_info.is_primary = 0
-            active_servers.append(server_info)
+            utils.active_servers.append(server_info)
             database.add_server(s.ip, s.port, is_primary=0)
-        print("Joined network. Received server list:", active_servers)
+        print("Joined network. Received server list:", utils.active_servers)
     except Exception as e:
         print("Error joining network:", e)
         sys.exit(1)
 
 def broadcast_server_list():
-    global active_servers
-    for server_info in active_servers:
+    for server_info in utils.active_servers:
         if (server_info.ip, server_info.port) == utils.actual_address:
             continue
         try:
@@ -162,7 +158,7 @@ def broadcast_server_list():
             channel = grpc.insecure_channel(grpc_address)
             stub = chat_service_pb2_grpc.ChatServiceStub(channel)
             update_req = chat_service_pb2.UpdateServerListRequest(
-                server_list=[chat_service_pb2.ServerInfo(ip=s.ip, port=s.port) for s in active_servers]
+                server_list=[chat_service_pb2.ServerInfo(ip=s.ip, port=s.port) for s in utils.active_servers]
             )
             resp = stub.UpdateServerList(update_req)
             print(f"Broadcasted server list to {server_info.ip}:{server_info.port}")
@@ -170,10 +166,9 @@ def broadcast_server_list():
             print(f"Failed to broadcast to {server_info.ip}:{server_info.port}: {e}")
 
 def elect_new_primary():
-    global active_servers
-    if not active_servers:
+    if not utils.active_servers:
         return
-    sorted_servers = sorted(active_servers, key=lambda s: (s.ip, s.port))
+    sorted_servers = sorted(utils.active_servers, key=lambda s: (s.ip, s.port))
     new_primary = sorted_servers[0]
     if (new_primary.ip, new_primary.port) == utils.actual_address:
         utils.set_replication_config(True, utils.actual_address)
@@ -185,11 +180,10 @@ def elect_new_primary():
     broadcast_server_list()
 
 def monitor_servers():
-    global active_servers
     while True:
         time.sleep(5)
         updated = False
-        for server_info in active_servers.copy():
+        for server_info in utils.active_servers.copy():
             if (server_info.ip, server_info.port) == utils.actual_address:
                 database.update_heartbeat(utils.actual_address[0], utils.actual_address[1])
                 continue
@@ -204,23 +198,33 @@ def monitor_servers():
                 database.update_heartbeat(server_info.ip, server_info.port)
             except Exception as e:
                 print(f"Server {server_info.ip}:{server_info.port} is unresponsive. Removing from active servers.")
-                active_servers.remove(server_info)
+                utils.active_servers.remove(server_info)
                 database.remove_server(server_info.ip, server_info.port)
                 updated = True
         if updated:
-            if not any(s for s in active_servers if s.is_primary):
+            if not any(s for s in utils.active_servers if s.is_primary):
                 elect_new_primary()
             broadcast_server_list()
 
 if __name__ == "__main__":
-    database.initialize_db()
-
+    from os import environ
+    
+    # Initialize the main database and the server list table.
+    # After binding the socket, get the address:
     local_ip = get_local_ip()
     lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     lsock.bind((local_ip, 0))
     lsock.listen()
     addr = lsock.getsockname()
-    utils.set_replication_config(False, addr)  # default value; will update below
+    
+    # Set a unique database name based on the server's address.
+    environ["DATABASE_NAME"] = f"chat_{addr[0]}_{addr[1]}.db"
+    print(f"chat_{addr[0]}_{addr[1]}.db")
+    
+    database.initialize_db()
+
+    # Set replication config accordingly.
+    utils.set_replication_config(False, addr)  # default; may update below
     print("Listening on", addr)
     lsock.setblocking(False)
     sel.register(lsock, selectors.EVENT_READ, data=None)
@@ -238,7 +242,7 @@ if __name__ == "__main__":
         primary_server_info.ip = addr[0]
         primary_server_info.port = addr[1]
         primary_server_info.is_primary = 1
-        active_servers.append(primary_server_info)
+        utils.active_servers.append(primary_server_info)
         database.add_server(addr[0], addr[1], is_primary=1)
         print("Starting as primary server.")
     

@@ -13,9 +13,6 @@ from configs.config import *
 import chat_service_pb2
 import chat_service_pb2_grpc
 
-# A global list to hold active servers.
-active_servers = []  # Each element is an object with attributes: ip and port
-
 class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
     
     def Register(self, request, context):
@@ -203,9 +200,22 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         utils.remove_rpc_send_queue_user(username)
         
     def JoinNetwork(self, request, context):
-        utils.debug(f"JoinNetwork request received from server {request.server_ip}:{request.server_port}")
+        found = False
+        for server in utils.active_servers:
+            if server.ip == request.server_ip and server.port == request.server_port:
+                found = True
+                break
+        if not found:
+            # Add the new backup server info.
+            new_server = type("ServerInfo", (), {})()
+            new_server.ip = request.server_ip
+            new_server.port = request.server_port
+            new_server.is_primary = 0
+            utils.active_servers.append(new_server)
+            database.add_server(request.server_ip, request.server_port, is_primary=0)
+            utils.debug(f"Added new backup server {request.server_ip}:{request.server_port} to active_servers.")
         server_info_list = []
-        for server in active_servers:
+        for server in utils.active_servers:
             server_info_list.append(chat_service_pb2.ServerInfo(ip=server.ip, port=server.port))
         return chat_service_pb2.JoinNetworkResponse(server_list=server_info_list)
     
@@ -261,8 +271,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             server_info.port = s.port
             new_list.append(server_info)
         utils.debug("Server list updated via UpdateServerList RPC.")
-        global active_servers
-        active_servers = new_list
+        utils.active_servers = new_list
         return chat_service_pb2.UpdateServerListResponse(errno=SUCCESS)
 
 # ---------------------------
@@ -278,9 +287,8 @@ def replicate_to_backups(message_data):
       - operation ("SEND" or "DELETE")
     """
     import grpc
-    global active_servers
     _, actual_addr = utils.get_replication_config()
-    for server_info in active_servers:
+    for server_info in utils.active_servers:
         if (server_info.ip, server_info.port) == actual_addr:
             continue
         try:

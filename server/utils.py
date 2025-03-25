@@ -21,6 +21,9 @@ passive_clients = {}
 # RPC Send Queue that holds live updates to be sent to active clients
 rpc_send_queue = {}
 
+# List of active servers.
+active_servers = []
+
 # Create locks for thread-safe access to shared resources
 active_clients_lock = threading.Lock()
 rpc_send_queue_lock = threading.Lock()

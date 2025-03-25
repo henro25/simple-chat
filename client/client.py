@@ -83,19 +83,28 @@ class Client(QObject):
     
     def _live_updates_loop(self):
         """Creates a generator to send subscription and heartbeat messages, and processes updates."""
-        def request_generator():
-            # Send an initial subscription message.
-            yield chat_service_pb2.LiveUpdateRequest(username=self.username)
-
-        try:
-            # Open the bi-directional stream.
-            response_iterator = self.stub.UpdateStream(request_generator())
-            for update in response_iterator:
-                # Process the update in main thread (instead of the live updates thread).
-                event = LiveUpdateEvent(update)
-                QCoreApplication.postEvent(self, event)
-        except grpc.RpcError as e:
-            print("Live update stream terminated:", e)
+        while True:
+            def request_generator():
+                # Send an initial subscription message.
+                # Make sure the request type here matches what your .proto expects (e.g., LoginRequest)
+                yield chat_service_pb2.LiveUpdateRequest(username=self.username)
+            try:
+                # Open the bi-directional stream.
+                response_iterator = self.stub.UpdateStream(request_generator())
+                for update in response_iterator:
+                    # Process the update in main thread (instead of the live updates thread).
+                    event = LiveUpdateEvent(update)
+                    QCoreApplication.postEvent(self, event)
+            except grpc.RpcError as e:
+                print("Live update stream terminated:", e)
+                # Attempt to reconnect to an alternative server.
+                if grpc_client_protocol.reconnect_to_alternative(self):
+                    print("Reconnected to new server. Restarting live updates stream.")
+                    continue  # Retry the loop with the new connection.
+                else:
+                    print("Failed to reconnect to any server. Exiting live updates loop.")
+                    break
+    
 
     def service_connection(self, key, mask):
         """Handles both incoming communication with the server."""
