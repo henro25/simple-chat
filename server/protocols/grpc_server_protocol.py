@@ -357,10 +357,12 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 utils.debug(f"Replication ACK error: {e}")
                 errno = DB_ERROR
         elif operation == "REGISTER":
-            success, reg_errno = database.register_account(request.username, request.text)
+            success, reg_errno = database.register_account(request.sender, request.text)
             if not success:
-                utils.debug(f"Replication: registration failed for {request.username} with error {reg_errno}")
+                utils.debug(f"Replication: registration failed for {request.sender} with error {reg_errno}")
                 errno = reg_errno
+            else:
+                utils.debug(f"Replication: registration successful for {request.sender}")
         elif operation == "DELETE_ACCOUNT":
             reg_errno = database.deactivate_account(request.text)  # request.text carries the username.
             if reg_errno != SUCCESS:
@@ -368,15 +370,15 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 errno = reg_errno
         elif operation == "LOGIN":
             # Replicate login by marking the user as active.
-            utils.add_active_client(request.username, None)
-            utils.debug(f"Replication: LOGIN replicated for user {request.username}")
+            utils.add_active_client(request.sender, None)
+            utils.debug(f"Replication: LOGIN replicated for user {request.sender}")
         elif operation == "READ_HISTORY":
             # Replicate chat history read operation.
             ids_str = request.text  # e.g., "101,102,103"
             msg_ids = [int(x) for x in ids_str.split(",") if x]
             for msg_id in msg_ids:
                 database.mark_message_as_read(msg_id)
-            utils.debug(f"Replication: READ_HISTORY replicated for user {request.username} in conversation with {request.recipient}")
+            utils.debug(f"Replication: READ_HISTORY replicated for user {request.sender} in conversation with {request.recipient}")
             # Optionally, call a database function to update read status on backups.
         else:
             utils.debug(f"Unknown replication operation: {operation}")
