@@ -113,11 +113,16 @@ message PushDeleteMsg {
   int32 read_status = 4;
 }
 
+message PushServerList {
+  repeated ServerInfo server_list = 2;
+}
+
 message LiveUpdate {
   oneof update {
     PushMessage push_message = 1;
     PushUser push_user = 2;
     PushDeleteMsg push_delete_msg = 3;
+    PushServerList push_server_list = 4;
   }
 }
 

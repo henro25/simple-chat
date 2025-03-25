@@ -45,6 +45,21 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                     "text": request.password,  # or the hashed password
                     "operation": "REGISTER"
                 })
+                
+            # Send server list to client
+            with utils.rpc_send_queue_lock:
+                # Gather the current server list
+                curr_server_list = []
+                for s in utils.active_servers:
+                    curr_server_list.append(chat_service_pb2.ServerInfo(ip=s.ip, port=s.port))
+                
+                utils.debug(f"Server: pushing SERVER LIST message to {request.username} via gRPC")
+                utils.rpc_send_queue[request.username].append(
+                    chat_service_pb2.PushServerList(
+                        server_list=curr_server_list
+                    )
+                )
+                
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
                 page_code=REG_PG,
@@ -77,6 +92,21 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                     "text": f"{request.username},{request.ip_address},{request.port}",
                     "operation": "LOGIN"
                 })
+            
+            # Send server list to client
+            with utils.rpc_send_queue_lock:
+                # Gather the current server list
+                curr_server_list = []
+                for s in utils.active_servers:
+                    curr_server_list.append(chat_service_pb2.ServerInfo(ip=s.ip, port=s.port))
+                
+                utils.debug(f"Server: pushing SERVER LIST message to {request.username} via gRPC")
+                utils.rpc_send_queue[request.username].append(
+                    chat_service_pb2.PushServerList(
+                        server_list=curr_server_list
+                    )
+                )
+                
             return chat_service_pb2.LoginResponse(
                 errno=SUCCESS,
                 page_code=LGN_PG,
@@ -232,6 +262,8 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                         yield chat_service_pb2.LiveUpdate(push_user=update)
                     elif isinstance(update, chat_service_pb2.PushDeleteMsg):
                         yield chat_service_pb2.LiveUpdate(push_delete_msg=update)
+                    elif isinstance(update, chat_service_pb2.PushServerList):
+                        yield chat_service_pb2.LiveUpdate(push_server_list=update)
         except Exception as e:
             print(f"Exception in UpdateStream for {username}: {e}")
         finally:
@@ -264,6 +296,17 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         server_info_list = []
         for server in utils.active_servers:
             server_info_list.append(chat_service_pb2.ServerInfo(ip=server.ip, port=server.port))
+            
+        # Send this server's address to other clients
+        with utils.rpc_send_queue_lock:
+            for recipient in utils.rpc_send_queue.keys():
+                utils.debug(f"Server: pushing SERVER LIST message to {recipient} via gRPC")
+                utils.rpc_send_queue[recipient].append(
+                    chat_service_pb2.PushServerList(
+                        server_list=server_info_list
+                    )
+                )
+
         return chat_service_pb2.JoinNetworkResponse(server_list=server_info_list)
     
     def HealthCheck(self, request, context):

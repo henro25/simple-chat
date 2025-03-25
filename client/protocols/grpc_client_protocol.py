@@ -110,13 +110,13 @@ def handle_push_user(Client, push_user):
     Client.list_convos_page.num_unreads[new_user] = 0
     Client.list_convos_page.displayConvo(new_user)
 
-def handle_server_list_update(Client, push_server_list_update):
+def handle_server_list_update(Client, push_server_list):
     """
     Handles a live update containing an updated server list.
     The update contains a repeated ServerInfo field.
     """
     config.debug("Received server list update.")
-    new_server_list = [(s.ip, s.port) for s in push_server_list_update.server_list]
+    new_server_list = [(s.ip, s.port) for s in push_server_list.server_list]
     Client.server_list = new_server_list  # Save the updated list in the client.
     config.debug(f"Updated server list: {Client.server_list}")
 
@@ -135,7 +135,9 @@ def reconnect_to_alternative(Client):
     """
     Chooses a new server from the updated server list and re-establishes the gRPC channel and stub.
     """
+    config.debug("Attempting to reconnect to an alternative server.")
     for (ip, port) in Client.server_list:
+        config.debug(f"Trying alternative server at {ip}:{port + 1}")
         # Skip the current server if it's the one we already tried.
         if f"{ip}:{port + 1}" == Client.current_grpc_endpoint:
             continue
@@ -208,8 +210,8 @@ def process_live_update(Client, update):
             handle_push_user(Client, update.push_user)
         elif update_type == "push_delete_msg":
             handle_delete_msg(Client, update.push_delete_msg)
-        elif update_type == "push_server_list_update":
-            handle_server_list_update(Client, update.push_server_list_update)
+        elif update_type == "push_server_list":
+            handle_server_list_update(Client, update.push_server_list)
         else:
             config.debug("Received unknown live update type.")
     else:
