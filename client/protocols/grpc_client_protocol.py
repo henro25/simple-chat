@@ -151,10 +151,11 @@ def reconnect_to_alternative(Client):
                 Client.stub = new_stub
                 Client.current_grpc_endpoint = f"{ip}:{port + 1}"
                 config.debug(f"Switched to new server at {Client.current_grpc_endpoint}")
-                return
+                return True
         except Exception as e:
             config.debug(f"Failed to connect to alternative server {ip}:{port + 1}: {e}")
     config.debug("No alternative server available. Please try again later.")
+    return False
 
 def send_grpc_request(Client, request):
     """
