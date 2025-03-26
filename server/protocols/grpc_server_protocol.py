@@ -51,7 +51,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 # Gather the current server list
                 curr_server_list = []
                 for s in utils.active_servers:
-                    curr_server_list.append(chat_service_pb2.ServerInfo(ip=s.ip, port=s.port))
+                    curr_server_list.append(chat_service_pb2.ServerInfo(ip=s.ip, port=s.port, is_primary=getattr(s, "is_primary", False)))
                 
                 utils.debug(f"Server: pushing SERVER LIST message to {request.username} via gRPC")
                 utils.rpc_send_queue[request.username].append(
@@ -98,7 +98,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 # Gather the current server list
                 curr_server_list = []
                 for s in utils.active_servers:
-                    curr_server_list.append(chat_service_pb2.ServerInfo(ip=s.ip, port=s.port))
+                    curr_server_list.append(chat_service_pb2.ServerInfo(ip=s.ip, port=s.port, is_primary=getattr(s, "is_primary", False)))
                 
                 utils.debug(f"Server: pushing SERVER LIST message to {request.username} via gRPC")
                 utils.rpc_send_queue[request.username].append(
@@ -252,6 +252,13 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             return
         username = first_request.username
         utils.debug(f"User {username} subscribed for live updates.")
+        with utils.rpc_send_queue_lock:
+            curr_server_list = [chat_service_pb2.ServerInfo(ip=s.ip, port=s.port, is_primary=getattr(s, "is_primary", False))
+                                for s in utils.active_servers]
+            utils.debug(f"Pushing updated server list to client {username}")
+            utils.rpc_send_queue[username].append(
+                chat_service_pb2.PushServerList(server_list=curr_server_list)
+            )
         try:
             while context.is_active():
                 update = self._get_update_for_user(username)
@@ -290,13 +297,17 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             new_server = type("ServerInfo", (), {})()
             new_server.ip = request.server_ip
             new_server.port = request.server_port
-            new_server.is_primary = 0
+            new_server.is_primary = False
             utils.active_servers.append(new_server)
             database.add_server(request.server_ip, request.server_port, is_primary=0)
             utils.debug(f"Added new backup server {request.server_ip}:{request.server_port} to active_servers.")
         server_info_list = []
         for server in utils.active_servers:
-            server_info_list.append(chat_service_pb2.ServerInfo(ip=server.ip, port=server.port))
+            server_info_list.append(chat_service_pb2.ServerInfo(
+            ip=server.ip, 
+            port=server.port, 
+            is_primary=getattr(server, "is_primary", False)
+        ))
             
         # Send this server's address to other clients
         with utils.rpc_send_queue_lock:
@@ -393,9 +404,22 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             server_info = type("ServerInfo", (), {})()
             server_info.ip = s.ip
             server_info.port = s.port
+            server_info.is_primary = getattr(s, "is_primary", False)
             new_list.append(server_info)
+            if (s.ip, s.port) == utils.actual_address:
+                print("This server has been elected as the new PRIMARY.")
+                utils.is_primary = True
         utils.debug("Server list updated via UpdateServerList RPC.")
         utils.active_servers = new_list
+        if utils.is_primary:
+            with utils.rpc_send_queue_lock:
+                curr_server_list = [chat_service_pb2.ServerInfo(ip=s.ip, port=s.port, is_primary=getattr(s, "is_primary", False))
+                                    for s in utils.active_servers]
+                for recipient in utils.rpc_send_queue.keys():
+                    utils.debug(f"Pushing updated server list to client {recipient}")
+                    utils.rpc_send_queue[recipient].append(
+                        chat_service_pb2.PushServerList(server_list=curr_server_list)
+                    )
         return chat_service_pb2.UpdateServerListResponse(errno=SUCCESS)
 
 # ---------------------------
