@@ -45,15 +45,19 @@ def handle_chat_history(Client, response):
     """Handles the chat history response."""
     page_code = response.page_code
     num_unreads = response.unread_count
-
-    chat_history = [(msg.sender, msg.msg_id, msg.text) for msg in response.chat_history]
-    config.debug(f"page_code: {page_code}, num_unreads: {num_unreads}")
+    
+    # Build a chat history list from the repeated ChatMessage field.
+    chat_history = [(msg.sender == Client.username, msg.msg_id, msg.text) for msg in response.chat_history]
+    
+    updated_unread = max(0, Client.list_convos_page.num_unreads[Client.cur_convo] - num_unreads)
+    config.debug(f"page_code: {page_code}, updated_unread: {updated_unread}")
+    
     if page_code == config.CONVO_PG:
-        Client.list_convos_page.conversationSelected.emit(chat_history, num_unreads)
+        Client.list_convos_page.conversationSelected.emit(chat_history, updated_unread)
     else:
         if Client.messaging_page.num_unread > 0:
-            Client.messaging_page.updateUnreadCount(num_unreads)
-            Client.list_convos_page.updateAfterRead(num_unreads)
+            Client.messaging_page.updateUnreadCount(updated_unread)
+            Client.list_convos_page.updateAfterRead(updated_unread)
         Client.messaging_page.addChatHistory(chat_history)
         
 def handle_ack(Client, response):
