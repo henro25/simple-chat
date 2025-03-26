@@ -58,6 +58,7 @@ class Client(QObject):
         self.channel = grpc.insecure_channel(f'{config.SERVER_HOST}:{config.SERVER_PORT + 1}') # gRPC channel
         self.stub = chat_service_pb2_grpc.ChatServiceStub(self.channel) # gRPC stub
         self.live_updates_thread = None
+        self.keep_running = True # Flag to control the live update loop
         
         try:
             self.sock.connect(self.server_address)
@@ -67,6 +68,36 @@ class Client(QObject):
         except Exception as e:
             config.debug(f"Client: failed to connect to server at {self.server_address}: {e}")
             raise
+
+    def create_new_socket(self, new_host, new_port):
+        """
+        Closes the old socket (if any), creates a new one, and connects to the new server.
+        Registers the new socket with the selector for reading and writing.
+        """
+        # If there is an existing socket, close and unregister it.
+        if getattr(self, "sock", None):
+            try:
+                sel.unregister(self.sock)
+            except KeyError:
+                # Socket was not registered; no action needed.
+                pass
+            self.sock.close()
+            self.sock = None
+
+        # Create a new socket
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setblocking(False)
+        
+        self.server_address = (new_host, new_port)
+        try:
+            self.sock.connect(self.server_address)
+        except BlockingIOError:
+            # Non-blocking connect often raises this, which is expected.
+            pass
+
+        sel.register(self.sock, selectors.EVENT_READ | selectors.EVENT_WRITE, data=self)
+        
+        print(f"Created new socket and connected (non-blocking) to {new_host}:{new_port}")
     
     def event(self, event):
         if event.type() == LIVE_UPDATE_EVENT_TYPE:
@@ -83,7 +114,7 @@ class Client(QObject):
     
     def _live_updates_loop(self):
         """Creates a generator to send subscription and heartbeat messages, and processes updates."""
-        while True:
+        while self.keep_running:
             def request_generator():
                 # Send an initial subscription message.
                 # Make sure the request type here matches what your .proto expects (e.g., LoginRequest)
@@ -98,9 +129,12 @@ class Client(QObject):
             except grpc.RpcError as e:
                 print("Live update stream terminated:", e)
                 # Attempt to reconnect to an alternative server.
+                try:
+                    self.channel.close()
+                except Exception as close_err:
+                    print("Error closing channel:", close_err)
                 if grpc_client_protocol.reconnect_to_alternative(self):
                     print("Reconnected to new server. Restarting live updates stream.")
-                    continue  # Retry the loop with the new connection.
                 else:
                     print("Failed to reconnect to any server. Exiting live updates loop.")
                     break
@@ -183,6 +217,7 @@ class Client(QObject):
 
     def close(self):
         """Close the client connection."""
+        self.keep_running = False
         self.channel.close()
         sel.unregister(self.sock)
         self.sock.close()

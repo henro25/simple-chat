@@ -161,6 +161,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         if database.verify_valid_recipient(recipient) == 1:
             msg_id = database.store_message(sender, recipient, message)
             is_primary, _ = utils.get_replication_config()
+            print(is_primary)
             if is_primary:
                 replicate_to_backups({
                     "sender": sender,
@@ -317,17 +318,17 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
         errno = SUCCESS
         if operation == "SEND":
             msg_id = database.store_message(request.sender, request.recipient, request.text)
-            with utils.rpc_send_queue_lock:
-                if request.recipient in utils.rpc_send_queue:
-                    utils.debug(f"Replication: appending push SEND message to {request.recipient} via gRPC")
-                    utils.rpc_send_queue[request.recipient].append(
-                        chat_service_pb2.PushMessage(
-                            errno=SUCCESS,
-                            sender=request.sender,
-                            msg_id=msg_id,
-                            text=request.text
-                        )
-                    )
+            # with utils.rpc_send_queue_lock:
+            #     if request.recipient in utils.rpc_send_queue:
+            #         utils.debug(f"Replication: appending push SEND message to {request.recipient} via gRPC")
+            #         utils.rpc_send_queue[request.recipient].append(
+            #             chat_service_pb2.PushMessage(
+            #                 errno=SUCCESS,
+            #                 sender=request.sender,
+            #                 msg_id=msg_id,
+            #                 text=request.text
+            #             )
+            #         )
         elif operation == "DELETE":
             try:
                 msg_id = int(request.text)
@@ -336,18 +337,18 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 errno = DB_ERROR
                 return chat_service_pb2.ReplicationResponse(errno=errno)
             recipient, sender, unread, errno = database.delete_message(msg_id)
-            if recipient:
-                with utils.rpc_send_queue_lock:
-                    if request.recipient in utils.rpc_send_queue:
-                        utils.debug(f"Replication: appending push DELETE message to {request.recipient} via gRPC")
-                        utils.rpc_send_queue[request.recipient].append(
-                            chat_service_pb2.PushDeleteMsg(
-                                errno=SUCCESS,
-                                msg_id=msg_id,
-                                sender=sender,
-                                read_status=unread
-                            )
-                        )
+            # if recipient:
+            #     with utils.rpc_send_queue_lock:
+            #         if request.recipient in utils.rpc_send_queue:
+            #             utils.debug(f"Replication: appending push DELETE message to {request.recipient} via gRPC")
+            #             utils.rpc_send_queue[request.recipient].append(
+            #                 chat_service_pb2.PushDeleteMsg(
+            #                     errno=SUCCESS,
+            #                     msg_id=msg_id,
+            #                     sender=sender,
+            #                     read_status=unread
+            #                 )
+            #             )
         elif operation == "ACK":
             try:
                 msg_id = int(request.text)
@@ -362,15 +363,16 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
                 utils.debug(f"Replication: registration failed for {request.sender} with error {reg_errno}")
                 errno = reg_errno
             else:
+                utils.add_rpc_send_queue_user(request.sender)
                 utils.debug(f"Replication: registration successful for {request.sender}")
         elif operation == "DELETE_ACCOUNT":
-            reg_errno = database.deactivate_account(request.text)  # request.text carries the username.
+            reg_errno = database.deactivate_account(request.text) 
             if reg_errno != SUCCESS:
                 utils.debug(f"Replication: account deletion failed for {request.text} with error {reg_errno}")
                 errno = reg_errno
         elif operation == "LOGIN":
-            # Replicate login by marking the user as active.
-            utils.add_active_client(request.sender, None)
+            # Replicate login
+            utils.add_rpc_send_queue_user(request.sender)
             utils.debug(f"Replication: LOGIN replicated for user {request.sender}")
         elif operation == "READ_HISTORY":
             # Replicate chat history read operation.

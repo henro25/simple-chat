@@ -9,6 +9,7 @@ import configs.config as config
 import grpc
 import chat_service_pb2
 import chat_service_pb2_grpc
+import socket
 
 # ------------------------
 # Handle gRPC Responses and Live Updates
@@ -135,6 +136,8 @@ def reconnect_to_alternative(Client):
     """
     Chooses a new server from the updated server list and re-establishes the gRPC channel and stub.
     """
+    if not Client.keep_running:
+        return False
     config.debug("Attempting to reconnect to an alternative server.")
     for (ip, port) in Client.server_list:
         config.debug(f"Trying alternative server at {ip}:{port + 1}")
@@ -150,6 +153,8 @@ def reconnect_to_alternative(Client):
                 Client.channel = new_channel
                 Client.stub = new_stub
                 Client.current_grpc_endpoint = f"{ip}:{port + 1}"
+                # reconnect socket
+                Client.create_new_socket(ip, port)
                 config.debug(f"Switched to new server at {Client.current_grpc_endpoint}")
                 return True
         except Exception as e:
