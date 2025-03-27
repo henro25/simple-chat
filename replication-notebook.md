@@ -125,7 +125,7 @@ The updated `.proto` file now includes:
   Clients keep a copy of the active server list (updated via **PushServerList**) and perform health checks before issuing RPC calls.
 
 - **Automatic Reconnection:**  
-  If a client detects the primary is unresponsive, it iterates over the updated server list, testing connectivity, and reconnects to a valid server.
+  If a client detects the primary is unresponsive, it iterates over the updated server list, testing connectivity, and reconnects to a valid server. While the servers elect a new primary, all actions from the clients are blocked. When a new primary is elected, it will be pushed to the client which then will be redirected to connect to the primary. 
 
 - **State Reconciliation:**  
   Since servers replicate all state changes, clients do not need to perform any additional reconciliation after reconnecting.
