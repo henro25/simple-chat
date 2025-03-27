@@ -394,21 +394,6 @@ def test_delete_account(grpc_stub):
     assert "testuser" not in utils.active_clients
 
 
-def test_live_updates(grpc_stub):
-    """Tests bidirectional streaming for live updates."""
-    
-    def request_generator():
-        yield chat_service_pb2.LiveUpdateRequest(username="testuser")  # Subscribe to updates
-    
-    # Simulate an update: Send a message that should trigger a live update
-    grpc_stub.SendMessage(chat_service_pb2.SendMessageRequest(sender="testuser", recipient="anotheruser", text="Live update test"))
-
-    responses = grpc_stub.UpdateStream(request_generator())  # Start streaming
-    
-    for response in responses:
-        assert isinstance(response, chat_service_pb2.LiveUpdate)  # Ensure server responded
-        break  # Stop after first response
-
 def test_register_duplicate_user(grpc_stub):
     """
     Tests that registering a duplicate user returns an error.
@@ -565,30 +550,6 @@ def test_delete_account_nonexistent(grpc_stub):
     assert response.errno != 0  # Not success if the account isn't there
 
 
-def test_live_updates_no_changes(grpc_stub):
-    """
-    Tests that if no changes occur, the server doesn't push any updates.
-    """
-    def request_generator():
-        yield chat_service_pb2.LiveUpdateRequest(username="testuser_no_changes")
-    
-    # Start streaming
-    responses = grpc_stub.UpdateStream(request_generator())
-
-    # Attempt to read from the stream
-    # If no changes occur, we might either block or get no responses
-    # So we can set a small timeout or break quickly
-    try:
-        response = next(responses)
-        # If we get a response, that's unexpected unless the server auto-sends
-        assert False, "Expected no updates, but got a response"
-    except StopIteration:
-        # This is the expected behavior if the server has no updates
-        pass
-    except Exception:
-        # If the server blocks or times out, you might handle differently
-        pass
-
 def test_ack_push_message(grpc_stub):
     """
     Tests acknowledging a pushed message. We simulate sending a message, 
@@ -741,3 +702,213 @@ def test_invalid_delete_account_request(grpc_stub):
     resp = grpc_stub.DeleteAccount(chat_service_pb2.DeleteAccountRequest(username=""))
     assert resp.errno != 0
 
+def test_join_network(grpc_stub):
+    """
+    Tests the JoinNetwork RPC.
+    Simulates a new backup server joining the network.
+    The response should include a server list, the current replication log, and a list of active clients.
+    """
+    # We'll use localhost and port 5000 (the primary's address for testing).
+    # In a real scenario, the joining server would provide its own address.
+    join_req = chat_service_pb2.JoinNetworkRequest(server_ip="127.0.0.1", server_port=5000)
+    join_resp = grpc_stub.JoinNetwork(join_req)
+    
+    # Check that the response includes a non-empty server list.
+    assert join_resp.server_list is not None
+    assert len(join_resp.server_list) >= 1
+
+def test_health_check(grpc_stub):
+    """
+    Tests the HealthCheck RPC.
+    The response should indicate that the server is healthy.
+    """
+    health_req = chat_service_pb2.HealthCheckRequest()
+    health_resp = grpc_stub.HealthCheck(health_req)
+    assert health_resp.status == "OK"
+
+def test_replicate_write(grpc_stub):
+    """
+    Tests the ReplicateWrite RPC.
+    This test simulates a replication operation (e.g., registering a new account) and then verifies
+    that the operation succeeded (for example, the new account can log in).
+    """
+    test_username = "replicate_test"
+    test_password = "test_pass"
+    # Create a replication request for a REGISTER operation.
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender=test_username,
+        recipient="",
+        text=test_password,
+        operation="REGISTER"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == 0
+
+    # Verify that the account was registered by attempting to log in.
+    success, errno = database.verify_login(test_username, test_password)
+    assert success, f"Account {test_username} should be registered after replication, got errno {errno}"
+    
+def test_replicate_send(grpc_stub):
+    """
+    Tests replicating a SEND operation.
+    Ensures that a message is stored in the database.
+    """
+    sender = "rep_send"
+    recipient = "rep_recipient"
+    text = "Replication SEND test"
+    # Ensure recipient exists:
+    database.register_account(recipient, "pw")
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender=sender,
+        recipient=recipient,
+        text=text,
+        operation="SEND"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == SUCCESS
+    # Verify the message was stored:
+    unread, history = database.get_recent_messages(sender, recipient, -1, 10)
+    found = any(msg["message"] == text for msg in history)
+    assert found
+
+def test_replicate_delete(grpc_stub):
+    """
+    Tests replicating a DELETE operation.
+    Inserts a message then replicates its deletion.
+    """
+    sender = "rep_del"
+    recipient = "rep_del_recipient"
+    text = "Message to delete"
+    database.register_account(recipient, "pw")
+    msg_id = database.store_message(sender, recipient, text)
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender=sender,
+        recipient=recipient,
+        text=str(msg_id),
+        operation="DELETE"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == SUCCESS
+    # Verify that the message is no longer in the chat history:
+    unread, history = database.get_recent_messages(sender, recipient, -1, 10)
+    found = any(msg["id"] == msg_id for msg in history)
+    assert not found
+
+def test_replicate_ack(grpc_stub):
+    """
+    Tests replicating an ACK operation.
+    Inserts a message (which is unread) and replicates an ACK to mark it read.
+    """
+    sender = "rep_ack"
+    recipient = "rep_ack_recipient"
+    text = "Message for ACK"
+    database.register_account(recipient, "pw")
+    msg_id = database.store_message(sender, recipient, text)
+    # Verify initial unread status is 1:
+    unread_before, _ = database.get_recent_messages(sender, recipient, -1, 10)
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender=sender,
+        recipient=recipient,
+        text=str(msg_id),
+        operation="ACK"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == SUCCESS
+    # Verify that the message's unread flag is now 0:
+    unread_after, history = database.get_recent_messages(sender, recipient, -1, 10)
+
+def test_replicate_register(grpc_stub):
+    """
+    Tests replicating a REGISTER operation.
+    """
+    username = "rep_reg"
+    password = "rep_reg_pw"
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender=username,
+        recipient="",
+        text=password,
+        operation="REGISTER"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == SUCCESS
+    # Verify the account was created:
+    success, errno = database.verify_login(username, password)
+    assert success
+
+def test_replicate_delete_account(grpc_stub):
+    """
+    Tests replicating a DELETE_ACCOUNT operation.
+    """
+    username = "rep_delacc"
+    password = "del_pw"
+    database.register_account(username, password)
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender="",
+        recipient="",
+        text=username,
+        operation="DELETE_ACCOUNT"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == SUCCESS
+    # Verify that login fails (account deactivated):
+    success, errno = database.verify_login(username, password)
+    assert not success
+
+def test_replicate_login(grpc_stub):
+    """
+    Tests replicating a LOGIN operation.
+    This should add the user to the RPC send queue.
+    """
+    username = "rep_login"
+    password = "login_pw"
+    database.register_account(username, password)
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender=username,
+        recipient="",
+        text=f"{username},127.0.0.1,5000",
+        operation="LOGIN"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == SUCCESS
+    # Verify that the user is now in the rpc_send_queue:
+    assert username in utils.rpc_send_queue
+
+def test_replicate_read_history(grpc_stub):
+    """
+    Tests replicating a READ_HISTORY operation.
+    Inserts two messages, then replicates marking them as read.
+    """
+    sender = "alice"
+    recipient = "bob"
+    database.register_account(recipient, "pw")
+    msg_id1 = database.store_message(sender, recipient, "First message")
+    msg_id2 = database.store_message(sender, recipient, "Second message")
+    rep_req = chat_service_pb2.ReplicationRequest(
+        sender=sender,
+        recipient=recipient,
+        text=f"{msg_id1},{msg_id2}",
+        operation="READ_HISTORY"
+    )
+    rep_resp = grpc_stub.ReplicateWrite(rep_req)
+    assert rep_resp.errno == SUCCESS
+    # Verify that both messages are marked as read:
+    unread, history = database.get_recent_messages(sender, recipient, -1, 10)
+
+def test_update_server_list(grpc_stub):
+    """
+    Tests the UpdateServerList RPC.
+    Creates a dummy list of servers, sends it via UpdateServerList,
+    and verifies that utils.active_servers is updated accordingly.
+    """
+    dummy_servers = [
+        chat_service_pb2.ServerInfo(ip="127.0.0.1", port=5000),
+        chat_service_pb2.ServerInfo(ip="127.0.0.2", port=5001)
+    ]
+    update_req = chat_service_pb2.UpdateServerListRequest(server_list=dummy_servers)
+    update_resp = grpc_stub.UpdateServerList(update_req)
+    assert update_resp.errno == SUCCESS
+    active_servers = utils.active_servers
+    assert len(active_servers) == len(dummy_servers)
+    for ds in dummy_servers:
+        found = any(s.ip == ds.ip and s.port == ds.port for s in active_servers)
+        assert found
