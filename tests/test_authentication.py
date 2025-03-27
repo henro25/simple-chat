@@ -24,6 +24,7 @@ def setup_database():
     test_db = "test_chat.db"
     # Override the database filename in your module
     database.DATABASE_NAME = test_db
+    os.environ["DATABASE_NAME"] = test_db
 
     # Remove the test database file if it already exists
     if os.path.exists(test_db):

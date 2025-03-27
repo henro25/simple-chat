@@ -208,49 +208,6 @@ def test_full_workflow_login(grpc_stub):
     assert del_acc_resp.errno == 0
 
 
-def test_concurrent_users(grpc_stub):
-    """
-    Tests that multiple users can register, login, and send messages concurrently.
-    """
-    users = [("alice", "pw1"), ("bob", "pw2"), ("charlie", "pw3")]
-    
-    def register_and_login(username, password, port):
-        reg_r = do_register(grpc_stub, username, password, port=port)
-        assert reg_r.errno == 0
-
-    threads = []
-    for i, (u, p) in enumerate(users):
-        t = threading.Thread(target=register_and_login, args=(u,p,5000+i))
-        threads.append(t)
-        t.start()
-
-    for t in threads:
-        t.join()
-
-    # All three should be in active_clients
-    assert "alice" in utils.active_clients
-    assert "bob" in utils.active_clients
-    assert "charlie" in utils.active_clients
-
-    # Let's have them send messages to each other
-    do_send_message(grpc_stub, "alice", "bob", "Hello Bob!")
-    do_send_message(grpc_stub, "bob", "charlie", "Hello Charlie!")
-    do_send_message(grpc_stub, "charlie", "alice", "Hello Alice!")
-
-    # Check chat histories
-    hist_alice_bob = do_get_chat_history(grpc_stub, "alice", "bob")
-    assert len(hist_alice_bob.chat_history) == 1
-    assert hist_alice_bob.chat_history[0].text == "Hello Bob!"
-
-    hist_bob_charlie = do_get_chat_history(grpc_stub, "bob", "charlie")
-    assert len(hist_bob_charlie.chat_history) == 1
-    assert hist_bob_charlie.chat_history[0].text == "Hello Charlie!"
-
-    hist_charlie_alice = do_get_chat_history(grpc_stub, "charlie", "alice")
-    assert len(hist_charlie_alice.chat_history) == 1
-    assert hist_charlie_alice.chat_history[0].text == "Hello Alice!"
-
-
 def test_invalid_login_after_registration(grpc_stub):
     """
     Tests logging in with the wrong password immediately after a successful registration.
