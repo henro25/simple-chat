@@ -152,6 +152,14 @@ def join_network(bootstrap_ip, bootstrap_port):
 def broadcast_server_list():
     for server_info in utils.active_servers:
         if (server_info.ip, server_info.port) == utils.actual_address:
+            with utils.rpc_send_queue_lock:
+                curr_server_list = [chat_service_pb2.ServerInfo(ip=s.ip, port=s.port, is_primary=getattr(s, "is_primary", False))
+                                    for s in utils.active_servers]
+                for recipient in utils.rpc_send_queue.keys():
+                    utils.debug(f"Pushing updated server list to client {recipient}")
+                    utils.rpc_send_queue[recipient].append(
+                        chat_service_pb2.PushServerList(server_list=curr_server_list)
+                    )
             continue
         try:
             grpc_address = f"{server_info.ip}:{server_info.port + 1}"
