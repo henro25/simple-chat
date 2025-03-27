@@ -141,7 +141,7 @@ def join_network(bootstrap_ip, bootstrap_port):
             server_info = type("ServerInfo", (), {})()
             server_info.ip = s.ip
             server_info.port = s.port
-            server_info.is_primary = 0
+            server_info.is_primary = s.is_primary
             utils.active_servers.append(server_info)
             database.add_server(s.ip, s.port, is_primary=0)
         print("Joined network. Received server list:", utils.active_servers)
@@ -158,7 +158,8 @@ def broadcast_server_list():
             channel = grpc.insecure_channel(grpc_address)
             stub = chat_service_pb2_grpc.ChatServiceStub(channel)
             update_req = chat_service_pb2.UpdateServerListRequest(
-                server_list=[chat_service_pb2.ServerInfo(ip=s.ip, port=s.port) for s in utils.active_servers]
+                server_list=[chat_service_pb2.ServerInfo(ip=s.ip, port=s.port, is_primary=s.is_primary) 
+                             for s in utils.active_servers]
             )
             resp = stub.UpdateServerList(update_req)
             print(f"Broadcasted server list to {server_info.ip}:{server_info.port}")
@@ -170,6 +171,8 @@ def elect_new_primary():
         return
     sorted_servers = sorted(utils.active_servers, key=lambda s: (s.ip, s.port))
     new_primary = sorted_servers[0]
+    sorted_servers[0].is_primary = True
+    utils.active_servers = sorted_servers
     if (new_primary.ip, new_primary.port) == utils.actual_address:
         utils.set_replication_config(True, utils.actual_address)
         print("This server has been elected as the new PRIMARY.")

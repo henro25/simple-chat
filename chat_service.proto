@@ -133,6 +133,7 @@ message LiveUpdate {
 message ServerInfo {
   string ip = 1;
   int32 port = 2;
+  bool is_primary = 3;
 }
 
 message JoinNetworkRequest {

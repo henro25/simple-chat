@@ -27,6 +27,7 @@ import chat_service_pb2
 import chat_service_pb2_grpc
 import threading
 from PyQt5.QtCore import QEvent, QObject, QCoreApplication
+from PyQt5.QtWidgets import QMessageBox
 
 # Create a default selector
 sel = selectors.DefaultSelector()
@@ -51,7 +52,8 @@ class Client(QObject):
         self.list_convos_page = None  # store the current list convo page the client is on
         self.username = None        # Store username of client
         self.cur_convo = None       # Store username of other user if client on messaging page
-        self.server_list = [(host, port)]       # Store the current server list (updated via live updates).
+        self.server_list = [{"ip": host, "port": port, "is_primary": True}]       # Store the current server list (updated via live updates).
+        self.is_connected_to_primary = True  # New flag to track connection to primary
         self.current_grpc_endpoint = f'{host}:{port + 1}'       # Set up gRPC: current endpoint is host:port+1.
         self.registered = 0         # Stores state of socket
         self.inb = ""  # Buffer to hold incoming data
@@ -181,7 +183,13 @@ class Client(QObject):
         Send a request to the server, either via gRPC or directly via sockets.
         Instead of immediately waiting for a response, we store outgoing data and
         let the selector notify us when we can send it with sockets.
+        If not connected to a primary, block the operation.
         """
+        if not self.is_connected_to_primary:
+            config.debug("Operation blocked: not connected to a primary server.")
+            QMessageBox.warning(None, "Connection Error", 
+                            "Not connected to a primary server. Please wait until a new primary is elected and you are reconnected.")
+            return
         # Check if current protocol version is 3.0 and the request is a gRPC request (not string)
         if config.CUR_PROTO_VERSION == "3.0" and not isinstance(request, str):
             grpc_client_protocol.send_grpc_request(self, request)

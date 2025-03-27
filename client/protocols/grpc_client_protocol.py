@@ -121,12 +121,21 @@ def handle_server_list_update(Client, push_server_list):
     The update contains a repeated ServerInfo field.
     """
     config.debug("Received server list update.")
-    new_server_list = [(s.ip, s.port) for s in push_server_list.server_list]
+    new_server_list = [{"ip": s.ip, "port": s.port, "is_primary": s.is_primary} 
+                       for s in push_server_list.server_list]
     Client.server_list = new_server_list  # Save the updated list in the client.
     config.debug(f"Updated server list: {Client.server_list}")
 
     # Optionally, if the current gRPC channel is no longer valid,
     # attempt to reconnect using an alternate server.
+    primary = next((s for s in new_server_list if s["is_primary"]), None)
+    if primary is not None:
+        primary_endpoint = f"{primary['ip']}:{primary['port']+1}"
+        if primary_endpoint != Client.current_grpc_endpoint:
+            config.debug("Server redirection: new primary available. Redirecting client...")
+            reconnect_to_primary(Client, primary)
+        else:
+            Client.is_connected_to_primary = True
     try:
         # Test the current stub with a HealthCheck.
         response = Client.stub.HealthCheck(chat_service_pb2.HealthCheckRequest(), timeout=2)
@@ -136,6 +145,28 @@ def handle_server_list_update(Client, push_server_list):
         config.debug("Current primary is unresponsive; reconnecting to an alternative server.")
         reconnect_to_alternative(Client)
 
+def reconnect_to_primary(Client, primary):
+    """
+    Re-establish the connection to the primary server indicated by the server update.
+    """
+    new_endpoint = f"{primary['ip']}:{primary['port']+1}"
+    try:
+        new_channel = grpc.insecure_channel(new_endpoint)
+        new_stub = chat_service_pb2_grpc.ChatServiceStub(new_channel)
+        response = new_stub.HealthCheck(chat_service_pb2.HealthCheckRequest(), timeout=2)
+        if response.status == "OK":
+            Client.channel = new_channel
+            Client.stub = new_stub
+            Client.current_grpc_endpoint = new_endpoint
+            Client.create_new_socket(primary["ip"], primary["port"])
+            Client.is_connected_to_primary = True  # Mark as connected to primary
+            config.debug(f"Redirected to new primary server at {new_endpoint}")
+            return True
+    except Exception as e:
+        config.debug(f"Failed to redirect to new primary at {new_endpoint}: {e}")
+    Client.is_connected_to_primary = False
+    return False
+
 def reconnect_to_alternative(Client):
     """
     Chooses a new server from the updated server list and re-establishes the gRPC channel and stub.
@@ -143,7 +174,8 @@ def reconnect_to_alternative(Client):
     if not Client.keep_running:
         return False
     config.debug("Attempting to reconnect to an alternative server.")
-    for (ip, port) in Client.server_list:
+    for s in Client.server_list:
+        ip, port = s["ip"], s["port"]
         config.debug(f"Trying alternative server at {ip}:{port + 1}")
         # Skip the current server if it's the one we already tried.
         if f"{ip}:{port + 1}" == Client.current_grpc_endpoint:
@@ -159,6 +191,10 @@ def reconnect_to_alternative(Client):
                 Client.current_grpc_endpoint = f"{ip}:{port + 1}"
                 # reconnect socket
                 Client.create_new_socket(ip, port)
+                if s["is_primary"]:
+                    Client.is_connected_to_primary = True
+                else:
+                    Client.is_connected_to_primary = False
                 config.debug(f"Switched to new server at {Client.current_grpc_endpoint}")
                 return True
         except Exception as e:
