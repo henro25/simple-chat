@@ -256,6 +256,7 @@ class MyChatService(chat_service_pb2_grpc.ChatServiceServicer):
             curr_server_list = [chat_service_pb2.ServerInfo(ip=s.ip, port=s.port, is_primary=getattr(s, "is_primary", False))
                                 for s in utils.active_servers]
             utils.debug(f"Pushing updated server list to client {username}")
+            utils.rpc_send_queue[username] = []
             utils.rpc_send_queue[username].append(
                 chat_service_pb2.PushServerList(server_list=curr_server_list)
             )
