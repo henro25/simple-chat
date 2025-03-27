@@ -1,100 +1,168 @@
 # Fault-Tolerant Replication Engineering Notebook
 
-This document serves as a metadata and engineering notebook entry for re-implementing our chat application backend using gRPC, while adding fault tolerance through replication and persistent storage. It covers design decisions, implementation steps, and answers key questions regarding generated code and network configuration.
+This document serves as an engineering notebook entry for re-implementing our chat application backend using gRPC, with fault tolerance achieved via replication, dynamic server discovery, and leader election. It details design decisions, implementation strategies, and addresses replication, primary selection, and two-node fault tolerance.
 
 ---
 
 ## 1. Overview
 
-### 1.1 Current Architecture
+### 1.1 Legacy Architecture
 
-- **Client:** A PyQt-based GUI that communicates with a single server via raw sockets using a custom wire protocol (or JSON) and gRPC.
-- **Server:** A single server handling client requests and persisting data in a SQLite database.  
-- **Database:** SQLite is used for persisting user accounts and messages.
+- **Client:**  
+  A PyQt-based GUI that previously communicated with a single server using raw sockets (via a custom protocol or JSON) and gRPC.
 
-### 1.2 Goals for New Architecture
+- **Server:**  
+  A single node handling client requests and persisting data in a SQLite database.
 
-We want to extend our current gRPC-based chat system so that each server maintains a dynamic list of active servers (their IP addresses and ports). When a new server is added (by specifying its server client number and port), it contacts an existing server to obtain the full state—including the active client list and database snapshot. This updated list is then broadcast to all active servers and clients. In addition, if a server goes down, every server and client will update their list to remove that server’s endpoint.
+- **Database:**  
+  SQLite stored user accounts and messages.
 
-We will use a primary-backup (master-replica) model. The primary server handles client writes and replicates those changes to backups. If the primary goes down, the remaining servers synchronize, elect a new primary, and inform clients so they can switch their gRPC connection.
+### 1.2 Goals for the New Architecture
+
+- **Fault Tolerance and Replication:**  
+  Implement a primary-backup model where the primary handles all write operations and replicates them to backup servers. In case of primary failure, the remaining nodes synchronize state and elect a new primary.
+
+- **Dynamic Server List Management:**  
+  Each server maintains an up-to-date list of active servers. When a new server joins, it contacts a bootstrap server via the **JoinNetwork** RPC to receive the full state (active clients, server list, and database snapshot). The updated state is then broadcast to all nodes via the **UpdateServerList** RPC.
+
+- **Leader Election and Recovery:**  
+  A heartbeat mechanism (using the **HealthCheck** RPC) monitors server health. If the primary fails, the backup nodes trigger an election (using a deterministic method based on lowest IP/port) to designate a new primary, which is then announced to clients.
+
+- **Client Resilience:**  
+  Clients maintain a local copy of the active server list, perform regular health checks, and automatically reconnect to a functioning server if the primary becomes unreachable.
 
 ---
 
-## 2. Requirements and Goals
+## 2. Detailed Requirements and Fault Tolerance Goals
 
-- Each server maintains a list of active server endpoints (IP/port)
-- A new server joining the network contacts an existing server to receive the current server list and the full state (active clients and database snapshot)
-- When a server is added, the updated server list is broadcast to all active servers and clients
-- If a server goes down, its information is removed from the list and the updated list is broadcast.
-- The system follows a primary-backup model: the primary handles all write operations and replicates them to backups.
-- If the primary fails, the backups synchronize and elect a new primary.
-- Clients maintain their own copy of the server list and automatically switch their gRPC connection to a valid server if the one they are using becomes unreachable.
+- **Active Server List:**  
+  Every server maintains a persistent or in-memory record of active server endpoints. Any changes are immediately broadcast to all nodes and clients.
+
+- **State Transfer on Joining:**  
+  New servers retrieve the full state (active client list and a database snapshot or transaction log) from an existing server upon joining.
+
+- **Primary-Backup Model:**  
+  - The primary server processes all write operations (e.g., sending messages, account registrations, deletions) and replicates these operations using dedicated RPCs such as **ReplicateWrite**.  
+  - Two-server fault tolerance is ensured by replicating critical operations to at least one backup and by having consistent state transfers on join.
+
+- **Leader Election:**  
+  Upon primary failure, the system uses a deterministic algorithm (e.g., selecting the server with the lowest IP/port) to elect a new primary. The new leader synchronizes state and broadcasts its status.
+
+- **Client Failover:**  
+  Clients periodically check the primary’s health and, on detecting a failure, automatically switch to another server from the updated server list.
+
+---
 
 ## 3. High-Level Design
 
-### 3.1 Dynamic Server List & Broadcast:
+### 3.1 Dynamic Server Discovery and State Synchronization
 
-- Each server stores an in-memory (or small persistent table) list of active servers.
-- When a new server joins, it contacts a bootstrap server via a dedicated RPC (e.g., JoinNetwork)
-- That server sends the current server list and a state snapshot (which can include the active client list and a pointer to a transaction log or a full DB snapshot).
-- The joining server integrates the received state, adds its own info, and then the updated list is broadcast using an UpdateServerList RPC to all servers and clients.
-- In case a server fails (detected through heartbeat or timeout mechanisms), the list is updated to remove that server and the change is broadcast.
+- **Join and Update Procedures:**
+  - **JoinNetwork RPC:**  
+    A new server contacts an existing node to receive the current list of active servers and a state snapshot.
+  
+  - **UpdateServerList RPC:**  
+    Once the joining server updates its local state and adds its endpoint, the updated server list is broadcast to all active nodes and clients.
 
-### 3.2 Primary-Backup Coordination:
+### 3.2 Primary-Backup Coordination and Replication
 
-- The primary server handles all client write operations (such as sending messages, deleting messages, etc.) and writes these updates to its local SQLite database.
-- After each write, the primary sends a replication RPC (for instance, ReplicateWrite for inserts/updates and ReplicateDelete for deletions) to the backup servers.
-- Backups update their own persistent store upon receiving replication calls.
-- A heartbeat or HealthCheck RPC is used between servers to monitor the primary’s health.
-- If the primary fails, the remaining servers run an election algorithm (for example, the server with the lowest IP/port or a preconfigured priority becomes the new primary) and update the state accordingly.
-- The new primary is announced via a broadcast so that clients can update their gRPC connection.
+- **Write Replication:**  
+  The primary server handles client write operations (e.g., **SendMessage**, **DeleteMessage**, **Register**, etc.) and replicates these to backups using the **ReplicateWrite** RPC.  
+  Each replication request includes the operation type (e.g., "SEND", "DELETE", "REGISTER") and required data.
 
-### 3.3 Client Behavior:
+- **Health Monitoring:**  
+  A dedicated heartbeat thread uses the **HealthCheck** RPC to ensure that all servers are responsive. Missed heartbeats trigger leader election.
 
-- Clients maintain a local copy of the active server list, which is updated via broadcasts from servers.
-- Before making an RPC call, the client checks the health of the primary server (for example, by using a HealthCheck RPC). If the primary is unresponsive, the client selects an alternative server from its list. 
-- When a connection failure occurs, the client retrieves the latest server list (or receives a broadcast update) and re-establishes its gRPC channel with a valid server.
-- Clients need no additional reconciliation for state because all servers are synchronized.
+- **Leader Election:**  
+  In case of primary failure, backup nodes use a deterministic algorithm (sorting by IP/port) to elect a new primary. The election result is then broadcast to ensure all nodes and clients are updated.
 
-## 4. Detailed Implementation
+### 3.3 Client-Side Resilience
 
-### 4.1 Modifications to the .proto File; add new RPC methods for server list management:
+- **Dynamic gRPC Connection Handling:**  
+  Clients subscribe to a live update stream that provides the current server list. Before every operation, they perform a health check on the primary.
+  
+- **Automatic Failover:**  
+  On detecting a connection failure, the client uses the updated server list to reconnect to a functioning server with minimal disruption.
 
-- A **JoinNetwork** RPC, where a new server sends its endpoint and receives the current server list and state snapshot.
-- An **UpdateServerList** RPC to broadcast changes in the active server list.
-- A **HealthCheck** RPC for both servers and clients, possibly including an indication of which server is the current primary.
-- Changes to all original chat service functions to be broadcasted to other active servers when the primary receives a client operation
+---
 
-For example, the .proto file might include messages like:
+## 4. Implementation Details
 
-- **ServerInfo** (with fields for IP and port).
-- **ServerListUpdate** (a repeated field of ServerInfo).
-- **JoinRequest** and **JoinResponse** (to include the current server list and a state snapshot).
-- **HealthCheckRequest** and **HealthCheckResponse**.
-- **ReplicationRequest** and **ReplicationResponse**.
+### 4.1 gRPC Protocol Enhancements
 
-### 4.2 Server-Side Changes:
+The updated `.proto` file now includes:
 
-- On startup, a server is the first node if no arguments are provided. If arugments of another server's IP and port number are provided, then it calls **JoinNetwork** on that existing server to receive the current server list and state snapshot.
-- The server then updates its local list and adds its own endpoint.
-- The updated list is broadcast to all active servers and clients.
-- In the primary server’s RPC methods (for example, in SendMessage), after writing to the local SQLite database, the server issues replication RPCs to each backup, which is simply the same client request.
-- Implement a heartbeat mechanism using the HealthCheck RPC to monitor the primary’s status.
-- On primary failure, the remaining servers perform a simple election (for example, choose the server with the lowest IP/port).
-- Once a new primary is elected, all servers synchronize their state if necessary and broadcast the new primary information.
+- **JoinNetwork:**  
+  Allows a new server to join the network and retrieve the current server list and state snapshot.
 
-### 4.3 Client-Side Changes:
+- **UpdateServerList:**  
+  Broadcasts changes in the server list to all nodes and clients.
 
-- Clients are configured with an initial server list, through calling **ServerListUpdate**.
-- Clients subscribe to updates for the server list, through a streaming RPC.
-- Before each operation, clients perform a lightweight health check on the primary server. If the primary fails, clients select an alternative from the list.
-- Client code wraps gRPC calls in error-handling logic; on error, clients re-read the server list and re-establish a connection with a valid server.
+- **HealthCheck:**  
+  Used by both servers and clients to verify the status of a node.
 
-### 4.4 Handling Edge Cases:
+- **ReplicateWrite:**  
+  Used by the primary to replicate operations (SEND, DELETE, ACK, REGISTER, LOGIN, READ_HISTORY, DELETE_ACCOUNT) to backups.
 
-- New Server Joining Late:
-  - Ensure the joining server receives the complete current state (e.g., using a full snapshot or a transaction log) and integrates it properly.
-- Simultaneous Primary Failures:
-  - Ensure the election algorithm can handle cases where more than one server fails at once (handled from Health Checkups and Lowest IP and port elections)
-- Delayed Replication:
-  - Accept that a short window of inconsistency might exist and implement retries or synchronous replication for critical operations.
+### 4.2 Server-Side Changes
+
+- **Network Joining:**  
+  On startup, if the server is not the first node, it calls **JoinNetwork** on a bootstrap server to receive the current state and server list. It then integrates this state and broadcasts the updated list via **UpdateServerList**.
+
+- **Primary-Backup Management:**  
+  - The primary processes all write operations and replicates these using the **ReplicateWrite** RPC.
+  - A heartbeat thread (`monitor_servers`) routinely checks the health of all active servers.
+  - On detecting a failure, the system triggers the `elect_new_primary` function, which selects a new primary (based on sorting the active servers by IP and port) and broadcasts this change.
+
+- **Edge Case Handling:**
+  - **Late Joiners:** Ensure the new server receives a full state snapshot.
+  - **Simultaneous Failures:** The heartbeat mechanism and election algorithm are designed to handle multiple node outages.
+  - **Delayed Replication:** Synchronous replication for critical operations minimizes state inconsistency.
+
+### 4.3 Client-Side Modifications
+
+- **Local Server List and Health Checks:**  
+  Clients keep a copy of the active server list (updated via **PushServerList**) and perform health checks before issuing RPC calls.
+
+- **Automatic Reconnection:**  
+  If a client detects the primary is unresponsive, it iterates over the updated server list, testing connectivity, and reconnects to a valid server.
+
+- **State Reconciliation:**  
+  Since servers replicate all state changes, clients do not need to perform any additional reconciliation after reconnecting.
+
+### 4.4 Replication and Fault Tolerance Code Highlights
+
+- **Replication Logic:**  
+  After a write operation, the primary calls a helper function (`replicate_to_backups`) that iterates over all backup servers (excluding itself) and sends the operation details via **ReplicateWrite**.
+
+- **Ensuring Two-Fault Tolerance:**  
+  With replication and state snapshots on join, even if one or two nodes fail, the remaining nodes have an up-to-date state.
+
+- **Leader Election:**  
+  The `elect_new_primary` function deterministically selects the node with the lowest IP/port as the new primary and triggers a broadcast update via **UpdateServerList**.
+
+- **gRPC and Networking:**  
+  Both the server and client modules include logic to manage multiple gRPC endpoints. Clients automatically switch endpoints if the current primary fails.
+
+---
+
+## 5. Summary
+
+- **Enhanced Protocol Definitions:**  
+  New RPCs (JoinNetwork, UpdateServerList, HealthCheck, ReplicateWrite) enable dynamic server management and state replication.
+
+- **Server-Side Enhancements:**  
+  - Dynamic server discovery and state synchronization.
+  - A primary-backup model with immediate replication of write operations.
+  - A heartbeat mechanism to monitor server health and trigger leader election on failure.
+
+- **Client-Side Enhancements:**  
+  - Clients maintain an updated server list and perform regular health checks.
+  - Automatic reconnection to alternative servers minimizes disruption during primary failures.
+
+- **Fault Tolerance Achievements:**  
+  The design ensures that even with the failure of one or two nodes, the system remains resilient. Leader election and state replication guarantee minimal data loss and quick recovery.
+
+---
+
+This document provides a comprehensive and detailed overview of the design, implementation, and key components of our fault-tolerant chat backend. If further clarification or additional details are needed, please feel free to ask.
